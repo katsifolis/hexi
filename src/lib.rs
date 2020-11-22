@@ -1,31 +1,29 @@
-use std::error::Error;
+use std::env;
 use std::fs;
 
-pub struct Config {
-    pub query: String,
-    pub filename: String,
+pub struct Binary {
+    pub name:    String,    // Name of the file
+    pub content: Vec<u8>,   // The contents of the binary
+    pub arch:    String,    // The architecture that was compiled
 }
 
-impl Config {
-    pub fn new(args: &[String]) -> Result<Config, &'static str> {
-        // --snip--
-        if args.len() < 3 {
-            return Err("not enough arguments");
-        }
+pub fn new_file() -> Result<Vec<u8>, &'static str> {
+    // --snip--
 
-        let query = args[1].clone();
-        let filename = args[2].clone();
+    let args: Vec<String> = env::args().collect();
 
-        Ok(Config { query, filename })
+    if args.len() < 2 {
+        return Err("not enough arguments");
+    }
+
+    let buff = read_file(args[1]).unwrap_or(println!("Couldn't open file"));
+
+    Ok(buff)
+}
+
+fn read_file(flname: String) -> Result<Vec<u8>, &'static str> {
+    match fs::read(flname) {
+        Ok(f) => f,
+        Err(err) => println!("You fucked it all"),
     }
 }
-
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    // --snip--
-    let contents = fs::read_to_string(config.filename)?;
-
-    println!("With text:\n{}", contents);
-
-    Ok(())
-}
-
