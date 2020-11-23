@@ -1,5 +1,11 @@
 use std::env;
+use std::process;
 use std::fs;
+
+#[allow(dead_code)]
+pub struct Buffer {
+    content: Vec<u8>,
+}
 
 pub struct Binary {
     pub name:    String,    // Name of the file
@@ -7,23 +13,25 @@ pub struct Binary {
     pub arch:    String,    // The architecture that was compiled
 }
 
-pub fn new_file() -> Result<Vec<u8>, &'static str> {
+pub fn new_file() -> Result<Vec<u8>, ()> {
     // --snip--
 
     let args: Vec<String> = env::args().collect();
-
     if args.len() < 2 {
-        return Err("not enough arguments");
-    }
-
-    let buff = read_file(args[1]).unwrap_or(println!("Couldn't open file"));
+        eprintln!("Didn't specify file");
+        process::exit(1)
+    } 
+    let buff = read_file(args[1].clone()).unwrap();
 
     Ok(buff)
 }
 
-fn read_file(flname: String) -> Result<Vec<u8>, &'static str> {
+fn read_file(flname: String) -> Result<Vec<u8>, ()> {
     match fs::read(flname) {
-        Ok(f) => f,
-        Err(err) => println!("You fucked it all"),
+        Ok(f) => Ok(f),
+        Err(_) => {
+            eprintln!("No such file");
+            process::exit(1)
+        },
     }
 }
