@@ -10,12 +10,13 @@
 
 use object::{Object, ObjectSection};
 use std::{borrow, env, fs};
+use gimli::AttributeValue;
 
 fn main() {
     for path in env::args().skip(1) {
         let file = fs::File::open(&path).unwrap();
         let mmap = unsafe { memmap::Mmap::map(&file).unwrap() };
-        let object = object::File::parse(&*mmap).unwrap();
+        let object = object::File::parse(&mmap).unwrap();
         let endian = if object.is_little_endian() {
             gimli::RunTimeEndian::Little
         } else {
@@ -25,7 +26,7 @@ fn main() {
     }
 }
 
-fn dump_file(object: &object::File, endian: gimli::RunTimeEndian) -> Result<(), gimli::Error> {
+fn dump_file(object: &object::File, endian: gimli::RunTimeEndian) -> Result<(), gimli::Error>  {
     // Load a section and return as `Cow<[u8]>`.
     let load_section = |id: gimli::SectionId| -> Result<borrow::Cow<[u8]>, gimli::Error> {
         match object.section_by_name(id.name()) {
@@ -54,23 +55,29 @@ fn dump_file(object: &object::File, endian: gimli::RunTimeEndian) -> Result<(), 
     // Iterate over the compilation units.
     let mut iter = dwarf.units();
     while let Some(header) = iter.next()? {
-        println!(
-            "Unit at <.debug_info+0x{:x}>",
-            header.offset().as_debug_info_offset().unwrap().0
-        );
+//        println!(
+//            "Unit at <.debug_info+0x{:x}>",
+//            header.offset().as_debug_info_offset().unwrap().0
+//        );
         let unit = dwarf.unit(header)?;
 
         // Iterate over the Debugging Information Entries (DIEs) in the unit.
         let mut depth = 0;
         let mut entries = unit.entries();
+	println!("Variables: ");
         while let Some((delta_depth, entry)) = entries.next_dfs()? {
-            depth += delta_depth;
-            println!("<{}><{:x}> {}", depth, entry.offset().0, entry.tag());
+ //           depth += delta_depth;
+//            println!("<{}><{:x}> {}", depth, entry.offset().0, entry.tag());
 
             // Iterate over the attributes in the DIE.
             let mut attrs = entry.attrs();
             while let Some(attr) = attrs.next()? {
-                println!("   {}: {:?}", attr.name(), attr.value());
+                // print!("   {}: ", attr.name());
+		// Transforming to ascii variable
+		match attr.value() {
+		    AttributeValue::String(i) => println!("\t\t{:?}", *i.slice().first().unwrap() as char),
+		    _ => continue,
+		}
             }
         }
     }
