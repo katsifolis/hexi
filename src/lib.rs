@@ -1,6 +1,7 @@
 use std::env;
 use std::process;
 use std::fs;
+use std::io;
 
 #[allow(dead_code)]
 pub struct Buffer {
@@ -11,6 +12,13 @@ pub struct Binary {
     pub name:    String,    // Name of the file
     pub content: Vec<u8>,   // The contents of the binary
     pub arch:    String,    // The architecture that was compiled
+}
+
+
+pub fn draw_ui (data: Vec<u8>) -> Result<(), io::Error> {
+
+    Ok(())
+
 }
 
 pub fn new_file() -> Result<Vec<u8>, ()> {
