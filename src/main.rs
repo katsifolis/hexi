@@ -1,18 +1,16 @@
-use rand::{thread_rng, Rng};
 use std::io;
-use std::io::Read;
-use std::time::Instant;
-use termion::{async_stdin, event::Key, input::TermRead, raw::IntoRawMode};
+use std::thread;
+use std::time;
+use termion::async_stdin;
+use termion::raw::IntoRawMode;
 use tui::backend::TermionBackend;
-use tui::layout::{Constraint, Direction, Layout};
-use tui::style::{Color, Style};
-use tui::text::{Spans, Text};
-use tui::widgets::{Block, Borders, Paragraph};
 use tui::Terminal;
+use hexi::app_loop;
 
 fn main() -> Result<(), io::Error> {
     // Set up terminal output
     let stdout = io::stdout().into_raw_mode()?;
+
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     
@@ -20,59 +18,14 @@ fn main() -> Result<(), io::Error> {
     // This provides non-blocking input support.
     let mut asi = async_stdin();
 
+    thread::sleep(time::Duration::from_millis(1000));
+
     // Clear the terminal
     terminal.clear()?;
-    loop {
-        // Lock the terminal and start a drawing session.
-        terminal.draw(|frame| {
-            // Create a layout into which to place our blocks.
-            let chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(
-                    [
-                        Constraint::Percentage(20),
-                        Constraint::Percentage(80),
-                    ]
-                    .as_ref(),
-                )
-                .split(frame.size());
 
-            // Create a paragraph with the above text...
-            let graph = Paragraph::new(Text::raw(""))
-                // In a block with borders and the given title...
-                .block(Block::default().title(" Address ").borders(Borders::ALL))
-                // With white foreground and black background...
-                .style(Style::default().fg(Color::White).bg(Color::Black));
-
-            // Render into the second chunk of the layout.
-            frame.render_widget(graph, chunks[0]);
-	    let txt1 = vec![Spans::from("")];
-            let graph = Paragraph::new(Text::raw(""))
-                // In a block with borders and the given title...
-                .block(Block::default().title(" Bytes ").borders(Borders::ALL))
-                // With white foreground and black background...
-                .style(Style::default().fg(Color::White).bg(Color::Black));
-
-	    frame.render_widget(graph, chunks[1]);
-        })?;
-
-
-
-        // Iterate over all the keys that have been pressed since the
-        // last time we checked.
-        for k in asi.by_ref().keys() {
-            match k.unwrap() {
-                // If any of them is q, quit
-                Key::Char('q') => {
-                    // Clear the terminal before exit so as not to leave
-                    // a mess.
-                    terminal.clear()?;
-                    return Ok(());
-                }
-                // Otherwise, throw them away.
-                _ => (),
-            }
-        }
+    match app_loop(&mut terminal, &mut asi) {
+        Ok(_) => Ok(()),
+        Err(err) => Err(err),
     }
 }
 

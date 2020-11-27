@@ -2,6 +2,17 @@ use std::env;
 use std::process;
 use std::fs;
 use std::io;
+use tui::terminal;
+use tui::layout::{Constraint, Direction, Layout};
+use tui::style::{Color, Style};
+use tui::text::Text; //use tui::text::{Spans, Text};
+use tui::widgets::{Block, Borders, Paragraph};
+use tui::backend::TermionBackend;
+use termion::event::Key;
+use termion::input::TermRead;
+use termion::raw::RawTerminal;
+use std::io::Read;
+
 
 #[allow(dead_code)]
 pub struct Buffer {
@@ -15,9 +26,67 @@ pub struct Binary {
 }
 
 
-pub fn draw_ui (data: Vec<u8>) -> Result<(), io::Error> {
+pub fn draw_ui (_data: Vec<u8>) -> Result<(), io::Error> {
 
     Ok(())
+
+}
+
+pub fn app_loop(term: &mut terminal::Terminal<TermionBackend<RawTerminal<io::Stdout>>>, asy_inp: &mut termion::AsyncReader ) -> Result<(), io::Error> {
+    loop {
+        // Lock the term and start a drawing session.
+        term.draw(|frame| {
+            // Create a layout into which to place our blocks.
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(
+                    [
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(80),
+                    ]
+                    .as_ref(),
+                )
+                .split(frame.size());
+
+            // Create a paragraph with the above text...
+            let graph = Paragraph::new(Text::raw(""))
+                // In a block with borders and the given title...
+                .block(Block::default().title(" Address ").borders(Borders::ALL))
+                // With white foreground and black background...
+                .style(Style::default().fg(Color::White).bg(Color::Black));
+
+            // Render into the second chunk of the layout.
+            frame.render_widget(graph, chunks[0]);
+            let graph = Paragraph::new(Text::raw(""))
+                // In a block with borders and the given title...
+                .block(Block::default().title(" Bytes ").borders(Borders::ALL))
+                // With white foreground and black background...
+                .style(Style::default().fg(Color::White).bg(Color::Black));
+
+	    frame.render_widget(graph, chunks[1]);
+        })?;
+
+
+
+        // Iterate over all the keys that have been pressed since the
+        // last time we checked.
+        for k in asy_inp.by_ref().keys() {
+            match k.unwrap() {
+                // If any of them is q, quit
+                Key::Char('q') => {
+                    // Clear the term before exit so as not to leave
+                    // a mess.
+                    term.clear()?;
+                    return Ok(());
+                }
+                // Otherwise, throw them away.
+                _ => (),
+            }
+        }
+    }
+
+    
+
 
 }
 
