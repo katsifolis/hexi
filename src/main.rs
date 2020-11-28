@@ -1,3 +1,4 @@
+use hexi::app_loop;
 use std::io;
 use std::thread;
 use std::time;
@@ -5,7 +6,6 @@ use termion::async_stdin;
 use termion::raw::IntoRawMode;
 use tui::backend::TermionBackend;
 use tui::Terminal;
-use hexi::app_loop;
 
 fn main() -> Result<(), io::Error> {
     // Set up terminal output
@@ -13,7 +13,7 @@ fn main() -> Result<(), io::Error> {
 
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    
+
     // Create a separate thread to poll stdin.
     // This provides non-blocking input support.
     let mut asi = async_stdin();
