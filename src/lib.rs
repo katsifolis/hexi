@@ -10,7 +10,7 @@ use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Style};
 use tui::terminal;
-use tui::text::{Text, Spans}; //use tui::text::{Spans, Text};
+use tui::text::{Spans, Text}; //use tui::text::{Spans, Text};
 use tui::widgets::{Block, Borders, Paragraph};
 
 #[allow(dead_code)]
@@ -29,10 +29,12 @@ pub fn drw_ui(_data: Vec<u8>) -> Result<(), io::Error> {
     Ok(())
 }
 
-//pub fn drw_addr(offset: u32, length: u8) -> Vec<u32> {
-//
-//
-//}
+pub fn drw_addr(offset: u32, length: u8) -> Vec<u32> {
+    let addr_iter: Vec<u32> = (1..offset)
+                              .filter(|&x| x == offset)
+                              .collect::<Vec<u32>>();
+    addr_iter
+}
 
 /// contains the loop in which the program runs.
 pub fn app_loop(
@@ -45,10 +47,16 @@ pub fn app_loop(
             // Create a layout into which to place our blocks.
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([ Constraint::Length(10), Constraint::Min(10), Constraint::Min(10)].as_ref())
+                .constraints(
+                    [
+                        Constraint::Length(10),
+                        Constraint::Min(10),
+                        Constraint::Min(10),
+                    ]
+                    .as_ref(),
+                )
                 .split(frame.size());
 
-            // Create the address box
             let addr = vec![
                 Spans::from("00000000"),
                 Spans::from("00000010"),
