@@ -32,7 +32,7 @@ pub fn drw_ui(_data: Vec<u8>) -> Result<(), io::Error> {
 pub fn drw_addr(offset: u32, length: u8) -> Vec<u32> {
     let addr_iter: Vec<u32> = (1..offset)
                               .filter(|&x| x == offset)
-                              .collect::<Vec<u32>>();
+                              .map(|x| Spans::from(x.to_string()));
     addr_iter
 }
 
