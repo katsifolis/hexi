@@ -1,4 +1,5 @@
 use hexi::app_loop;
+use hexi::drw_addr;
 use std::io;
 use std::thread;
 use std::time;
@@ -9,6 +10,8 @@ use tui::Terminal;
 
 fn main() -> Result<(), io::Error> {
     // Set up terminal output
+//    println!("{:#?}", drw_addr(16, 1));
+//    Ok(())
     let stdout = io::stdout().into_raw_mode()?;
 
     let backend = TermionBackend::new(stdout);

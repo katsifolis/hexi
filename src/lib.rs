@@ -29,10 +29,12 @@ pub fn drw_ui(_data: Vec<u8>) -> Result<(), io::Error> {
     Ok(())
 }
 
-pub fn drw_addr(offset: u32, length: u8) -> Vec<u32> {
-    let addr_iter: Vec<u32> = (1..offset)
-                              .filter(|&x| x == offset)
-                              .map(|x| Spans::from(x.to_string()));
+/// returns a string representation of address in hex format with offset from
+/// 0 and length of the number
+pub fn drw_addr<'a>(offset: u32, length: usize) -> Vec<Spans<'a>> {
+    let addr_iter: Vec<Spans> = (0..offset)
+                              .map(|x| Spans::from(format!("{:01$X}", x*0x10, length)))
+                              .collect();
     addr_iter
 }
 
@@ -57,20 +59,7 @@ pub fn app_loop(
                 )
                 .split(frame.size());
 
-            let addr = vec![
-                Spans::from("00000000"),
-                Spans::from("00000010"),
-                Spans::from("00000020"),
-                Spans::from("00000030"),
-                Spans::from("00000040"),
-                Spans::from("00000050"),
-                Spans::from("00000060"),
-                Spans::from("00000070"),
-                Spans::from("00000080"),
-                Spans::from("00000090"),
-                Spans::from("000000A0"),
-            ];
-
+            let addr = drw_addr(16,8);
             let graph = Paragraph::new(addr)
                 // In a block with borders and the given title...
                 .block(Block::default().title(" Address ").borders(Borders::ALL))
