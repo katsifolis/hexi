@@ -1,5 +1,4 @@
-use hexi::app_loop;
-use hexi::drw_addr;
+use hexi::{app_loop, new_file, Binary, drw_data};
 use std::io;
 use std::thread;
 use std::time;
@@ -9,27 +8,32 @@ use tui::backend::TermionBackend;
 use tui::Terminal;
 
 fn main() -> Result<(), io::Error> {
-    // Set up terminal output
-//    println!("{:#?}", drw_addr(16, 1));
-//    Ok(())
-    let stdout = io::stdout().into_raw_mode()?;
 
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    // Create a separate thread to poll stdin.
-    // This provides non-blocking input support.
-    let mut asi = async_stdin();
-
-    thread::sleep(time::Duration::from_millis(1000));
-
-    // Clear the terminal
-    terminal.clear()?;
-
-    match app_loop(&mut terminal, &mut asi) {
-        Ok(_) => Ok(()),
-        Err(err) => Err(err),
-    }
+    // Retrieve bytes buffer from stdin file
+    let binary = Binary {
+        name: "hi".to_string(),
+        buffer: new_file().unwrap(),
+    };
+    drw_data(binary.buffer);
+    Ok(())
+//
+//
+//    // Set up terminal output
+//    let stdout = io::stdout().into_raw_mode()?;
+//
+//    let backend = TermionBackend::new(stdout);
+//    let mut terminal = Terminal::new(backend)?;
+//
+//    // Create a separate thread to poll stdin.
+//    // This provides non-blocking input support.
+//    let mut asi = async_stdin();
+//    // Clear the terminal
+//    terminal.clear()?;
+//
+//    match app_loop(&mut terminal, &mut asi) {
+//        Ok(_) => Ok(()),
+//        Err(err) => Err(err),
+//    }
 }
 
 // Implementation of a dwarf devourer using gimli lib //
