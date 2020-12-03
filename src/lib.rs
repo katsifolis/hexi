@@ -22,31 +22,32 @@ pub struct Binary {
     pub buffer: Vec<u8>, // The contents of the binary
 }
 
-pub fn drw_data<'a>(_data: Vec<u8>) -> Vec<Spans<'a>> {
+/// returns with default values they byte representation of the file
+/// in cols of 5 and in rows of <file_size/5>
+pub fn get_data_repr<'a>(_data: Vec<u8>) -> Vec<Spans<'a>> {
     let mut values = Vec::<Spans>::new();
     let mut tmp = String::from("");
-    for (idx , v ) in _data.iter().enumerate() {
-        if (idx+1) % 15 == 0 {
+    for (idx, v) in _data.iter().enumerate() {
+        if (idx + 1) % 15 == 0 {
             tmp.push_str("\n");
             values.push(Spans::from(tmp.clone()));
             tmp.clear();
-//           println!("{}", tmp);
-//          
-        } else if (idx+1) % 3 == 0 {
+        } else if (idx + 1) % 3 == 0 {
             tmp.push_str(" ");
-            
         } else {
-            tmp.push_str(&*String::from(format!("{:02x}", v))) // passing the values;
+            tmp.push_str(&*String::from(format!("{:02X}", v))) // passing the values;
         }
 
-        if idx > 0xF0 { break; }
+        if idx > 0x370 {
+            break;
+        }
     }
     values
 }
 
 /// returns a string representation of address in hex format with offset from
 /// 0 and length of the number
-pub fn drw_addr<'a>(offset: u32, length: usize) -> Vec<Spans<'a>> {
+pub fn get_addr_repr<'a>(offset: usize, length: usize) -> Vec<Spans<'a>> {
     let addr_iter: Vec<Spans> = (0..offset)
         .map(|x| Spans::from(format!("{:01$X}", x * 0x10, length)))
         .collect();
@@ -76,14 +77,13 @@ pub fn app_loop(
                 .split(frame.size());
 
             // Address box
-            let addr = drw_addr(16, 8);
+            let addr = get_addr_repr(data.len() / 10, 8);
             let graph = Paragraph::new(addr)
                 .block(Block::default().title(" Address ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
-
             frame.render_widget(graph, chunks[0]);
 
-            let _data = drw_data(data.to_vec());
+            let _data = get_data_repr(data.to_vec());
             let graph = Paragraph::new(_data)
                 .block(Block::default().title(" Bytes ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
@@ -95,7 +95,6 @@ pub fn app_loop(
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
             frame.render_widget(graph, chunks[2]);
-            frame.set_cursor(10, 100);
         })?;
 
         for k in asy_inp.by_ref().keys() {
@@ -104,9 +103,6 @@ pub fn app_loop(
                     // Clearing the terminal
                     term.clear()?;
                     return Ok(());
-                }
-                Key::Char('l') => {
-                    term.set_cursor(11, 10);
                 }
                 // Throw away keys
                 _ => (),

@@ -1,4 +1,4 @@
-use hexi::{app_loop, new_file, Binary, drw_data};
+use hexi::{app_loop, new_file, Binary};
 use std::io;
 use std::thread;
 use std::time;
@@ -8,16 +8,14 @@ use tui::backend::TermionBackend;
 use tui::Terminal;
 
 fn main() -> Result<(), io::Error> {
-
     // Retrieve bytes buffer from stdin file
     let binary = Binary {
         name: "hi".to_string(),
         buffer: new_file().unwrap(),
     };
-//    drw_data(binary.buffer);
-//
-//    Ok(())
-
+    //    drw_data(binary.buffer);
+    //
+    //    Ok(())
 
     // Set up terminal output
     let stdout = io::stdout().into_raw_mode()?;
