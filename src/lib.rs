@@ -23,19 +23,25 @@ pub struct Binary {
 }
 
 pub fn drw_data<'a>(_data: Vec<u8>) -> Vec<Spans<'a>> {
-    let _a = vec![Spans::from("ho")];
+    let mut values = Vec::<Spans>::new();
     let mut tmp = String::from("");
     for (idx , v ) in _data.iter().enumerate() {
-        if idx % 10 == 0 {
+        if (idx+1) % 15 == 0 {
             tmp.push_str("\n");
-            println!("{}", tmp);
-        } else if idx > 30 {
-            break;
+            values.push(Spans::from(tmp.clone()));
+            tmp.clear();
+//           println!("{}", tmp);
+//          
+        } else if (idx+1) % 3 == 0 {
+            tmp.push_str(" ");
+            
         } else {
-            tmp.push_str("{v}");
+            tmp.push_str(&*String::from(format!("{:02x}", v))) // passing the values;
         }
+
+        if idx > 0xF0 { break; }
     }
-    _a
+    values
 }
 
 /// returns a string representation of address in hex format with offset from
@@ -51,6 +57,7 @@ pub fn drw_addr<'a>(offset: u32, length: usize) -> Vec<Spans<'a>> {
 pub fn app_loop(
     term: &mut terminal::Terminal<TermionBackend<RawTerminal<io::Stdout>>>,
     asy_inp: &mut termion::AsyncReader,
+    data: &Vec<u8>,
 ) -> Result<(), io::Error> {
     // Lock the term and start a drawing session.
     loop {
@@ -60,8 +67,8 @@ pub fn app_loop(
                 .direction(Direction::Horizontal)
                 .constraints(
                     [
-                        Constraint::Length(10),
-                        Constraint::Length(10),
+                        Constraint::Length(10), // addresses with padding
+                        Constraint::Length(25), // 25 = 2 (2 nibble = byte) * 10 (byte) + 5 (spaces)
                         Constraint::Max(20),
                     ]
                     .as_ref(),
@@ -75,7 +82,9 @@ pub fn app_loop(
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
             frame.render_widget(graph, chunks[0]);
-            let graph = Paragraph::new(Text::raw(""))
+
+            let _data = drw_data(data.to_vec());
+            let graph = Paragraph::new(_data)
                 .block(Block::default().title(" Bytes ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 

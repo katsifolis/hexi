@@ -14,26 +14,27 @@ fn main() -> Result<(), io::Error> {
         name: "hi".to_string(),
         buffer: new_file().unwrap(),
     };
-    drw_data(binary.buffer);
-    Ok(())
+//    drw_data(binary.buffer);
 //
-//
-//    // Set up terminal output
-//    let stdout = io::stdout().into_raw_mode()?;
-//
-//    let backend = TermionBackend::new(stdout);
-//    let mut terminal = Terminal::new(backend)?;
-//
-//    // Create a separate thread to poll stdin.
-//    // This provides non-blocking input support.
-//    let mut asi = async_stdin();
-//    // Clear the terminal
-//    terminal.clear()?;
-//
-//    match app_loop(&mut terminal, &mut asi) {
-//        Ok(_) => Ok(()),
-//        Err(err) => Err(err),
-//    }
+//    Ok(())
+
+
+    // Set up terminal output
+    let stdout = io::stdout().into_raw_mode()?;
+
+    let backend = TermionBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    // Create a separate thread to poll stdin.
+    // This provides non-blocking input support.
+    let mut asi = async_stdin();
+    // Clear the terminal
+    terminal.clear()?;
+
+    match app_loop(&mut terminal, &mut asi, &binary.buffer) {
+        Ok(_) => Ok(()),
+        Err(err) => Err(err),
+    }
 }
 
 // Implementation of a dwarf devourer using gimli lib //
