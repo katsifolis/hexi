@@ -22,9 +22,18 @@ pub struct Binary {
     pub buffer: Vec<u8>, // The contents of the binary
 }
 
+#[derive(PartialEq)]
+pub enum Repr {
+    BINARY,
+    OCTAL,
+    DECIMAL,
+    HEX,
+    ASCII,
+}
+
 /// returns with default values they byte representation of the file
 /// in cols of 5 and in rows of <file_size/5>
-pub fn get_data_repr<'a>(_data: Vec<u8>) -> Vec<Spans<'a>> {
+pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr) -> Vec<Spans<'a>> {
     let mut values = Vec::<Spans>::new();
     let mut tmp = String::from("");
     for (idx, v) in _data.iter().enumerate() {
@@ -32,10 +41,22 @@ pub fn get_data_repr<'a>(_data: Vec<u8>) -> Vec<Spans<'a>> {
             tmp.push_str("\n");
             values.push(Spans::from(tmp.clone()));
             tmp.clear();
-        } else if (idx + 1) % 3 == 0 {
+        } else if (idx + 1) % 3 == 0 && format == Repr::HEX{
             tmp.push_str(" ");
         } else {
-            tmp.push_str(&*String::from(format!("{:02X}", v))) // passing the values;
+            match format {
+                Repr::HEX => {
+                    tmp.push_str(&*String::from(format!("{:02X}", v))) // passing the values;
+                }
+                Repr::ASCII => {
+                    if *v > 0x20 && *v < 0x7f {
+                        tmp.push_str(&*String::from(format!("{}", *v as char)));
+                    } else {
+                        tmp.push_str(&*String::from(format!("."))); 
+                    }
+                }
+                _ => ()
+            }
         }
 
         if idx > 0x370 {
@@ -70,7 +91,8 @@ pub fn app_loop(
                     [
                         Constraint::Length(10), // addresses with padding
                         Constraint::Length(25), // 25 = 2 (2 nibble = byte) * 10 (byte) + 5 (spaces)
-                        Constraint::Max(20),
+                        Constraint::Length(15),
+                        Constraint::Length(10),
                     ]
                     .as_ref(),
                 )
@@ -83,14 +105,15 @@ pub fn app_loop(
                 .style(Style::default().fg(Color::White).bg(Color::Black));
             frame.render_widget(graph, chunks[0]);
 
-            let _data = get_data_repr(data.to_vec());
+            let _data = get_data_repr(data.to_vec(), Repr::HEX);
             let graph = Paragraph::new(_data)
                 .block(Block::default().title(" Bytes ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
             frame.render_widget(graph, chunks[1]);
 
-            let graph = Paragraph::new(Text::raw(""))
+            let _ascii = get_data_repr(data.to_vec(), Repr::ASCII);
+            let graph = Paragraph::new(_ascii)
                 .block(Block::default().title(" Value ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
