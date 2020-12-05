@@ -82,8 +82,10 @@ pub fn app_loop(
     data: &Vec<u8>,
 ) -> Result<(), io::Error> {
     // Lock the term and start a drawing session.
+    let mut xcursor = 36;
+    let mut ycursor = 1;
     loop {
-        thread::sleep(time::Duration::from_millis(100)); //
+        thread::sleep(time::Duration::from_millis(16)); //
         term.draw(|frame| {
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
@@ -118,6 +120,7 @@ pub fn app_loop(
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
             frame.render_widget(graph, chunks[2]);
+            frame.set_cursor(xcursor, ycursor);
         })?;
 
         for k in asy_inp.by_ref().keys() {
@@ -126,6 +129,24 @@ pub fn app_loop(
                     // Clearing the terminal
                     term.clear()?;
                     return Ok(());
+                }
+                Key::Char('c') => {
+                    term.clear()?;
+                    println!("{:#?}", term.set_cursor(1,1));
+                    println!("{:#?}", term.get_cursor());
+
+                }
+                Key::Char('l') => { 
+                    xcursor += 1;
+                }
+                Key::Char('h') => {
+                    xcursor -= 1;
+                }
+                Key::Char('j') => {
+                    ycursor += 1;
+                }
+                Key::Char('k') => {
+                    ycursor -= 1;
                 }
                 // Throw away keys
                 _ => (),

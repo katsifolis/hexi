@@ -4,6 +4,7 @@ use std::thread;
 use std::time;
 use termion::async_stdin;
 use termion::raw::IntoRawMode;
+use termion::cursor::DetectCursorPos;
 use tui::backend::TermionBackend;
 use tui::Terminal;
 
@@ -20,7 +21,7 @@ fn main() -> Result<(), io::Error> {
     // Set up terminal output
     let stdout = io::stdout().into_raw_mode()?;
 
-    let backend = TermionBackend::new(stdout);
+    let mut backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
     // Create a separate thread to poll stdin.
