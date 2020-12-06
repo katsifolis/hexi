@@ -9,14 +9,15 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::RawTerminal;
 use tui::backend::TermionBackend;
-use tui::layout::{Constraint, Direction, Layout};
+use tui::layout::{Constraint, Direction, Layout, Alignment};
 use tui::style::{Color, Style};
 use tui::terminal;
-use tui::text::{Spans, Text}; //use tui::text::{Spans, Text};
+use tui::text::Spans;
 use tui::widgets::{Block, Borders, Paragraph};
 
 #[allow(dead_code)]
 
+/// Contains info about the binary file
 pub struct Binary {
     pub name: String,    // Name of the file
     pub buffer: Vec<u8>, // The contents of the binary
@@ -30,6 +31,7 @@ pub enum Repr {
     HEX,
     ASCII,
 }
+
 
 /// returns with default values they byte representation of the file
 /// in cols of 5 and in rows of <file_size/5>
@@ -81,11 +83,16 @@ pub fn app_loop(
     asy_inp: &mut termion::AsyncReader,
     data: &Vec<u8>,
 ) -> Result<(), io::Error> {
+
     // Lock the term and start a drawing session.
-    let mut xcursor = 36;
-    let mut ycursor = 1;
+    let mut xcursor = 36; // Start of the `value` box
+    let mut ycursor = 1; // skip top border line
     loop {
-        thread::sleep(time::Duration::from_millis(16)); //
+        // TODO On resize reset ycursor and xcursor to box_height, box_width values.
+        
+        let _box_width = term.size().unwrap().height - 3; // 1 left border, 1 right border
+        let box_height = term.size().unwrap().height - 3; // 1 top border, 1 bottom border
+        thread::sleep(time::Duration::from_millis(16)); 
         term.draw(|frame| {
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
@@ -94,7 +101,7 @@ pub fn app_loop(
                         Constraint::Length(10), // addresses with padding
                         Constraint::Length(25), // 25 = 2 (2 nibble = byte) * 10 (byte) + 5 (spaces)
                         Constraint::Length(15),
-                        Constraint::Length(10),
+                        Constraint::Length(100),
                     ]
                     .as_ref(),
                 )
@@ -103,12 +110,14 @@ pub fn app_loop(
             // Address box
             let addr = get_addr_repr(data.len() / 10, 8);
             let graph = Paragraph::new(addr)
+                .alignment(Alignment::Center)
                 .block(Block::default().title(" Address ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
             frame.render_widget(graph, chunks[0]);
 
             let _data = get_data_repr(data.to_vec(), Repr::HEX);
             let graph = Paragraph::new(_data)
+                .alignment(Alignment::Center)
                 .block(Block::default().title(" Bytes ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
@@ -116,6 +125,7 @@ pub fn app_loop(
 
             let _ascii = get_data_repr(data.to_vec(), Repr::ASCII);
             let graph = Paragraph::new(_ascii)
+                .alignment(Alignment::Center)
                 .block(Block::default().title(" Value ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
@@ -125,31 +135,45 @@ pub fn app_loop(
 
         for k in asy_inp.by_ref().keys() {
             match k.unwrap() {
+                // Misc
+                
+                // Clearing the terminal
                 Key::Char('q') => {
-                    // Clearing the terminal
                     term.clear()?;
                     return Ok(());
                 }
-                Key::Char('c') => {
-                    term.clear()?;
-                    println!("{:#?}", term.set_cursor(1,1));
-                    println!("{:#?}", term.get_cursor());
 
-                }
+                // Navigation Keys
                 Key::Char('l') => { 
+                    if xcursor >= 48 {
+                        break;
+                    }
                     xcursor += 1;
                 }
                 Key::Char('h') => {
+                    if xcursor <= 36 { break; }
                     xcursor -= 1;
                 }
                 Key::Char('j') => {
+                    if ycursor >= box_height + 1 { break; }
                     ycursor += 1;
                 }
                 Key::Char('k') => {
+                    if ycursor <= 1 { break; }
                     ycursor -= 1;
                 }
+                Key::Char('g') => {
+                    xcursor = 36;
+                    ycursor = 1;
+                }
+
+                // Mutating Keys
+                Key::Char('c') => {
+                    
+                }
+
                 // Throw away keys
-                _ => (),
+                _ => ()
             }
         }
     }
