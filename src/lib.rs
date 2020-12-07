@@ -9,10 +9,10 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::RawTerminal;
 use tui::backend::TermionBackend;
-use tui::layout::{Constraint, Direction, Layout, Alignment};
+use tui::layout::{Alignment, Constraint, Direction, Layout};
 use tui::style::{Color, Style};
 use tui::terminal;
-use tui::text::Spans;
+use tui::text::{Span, Spans};
 use tui::widgets::{Block, Borders, Paragraph};
 
 #[allow(dead_code)]
@@ -21,6 +21,13 @@ use tui::widgets::{Block, Borders, Paragraph};
 pub struct Binary {
     pub name: String,    // Name of the file
     pub buffer: Vec<u8>, // The contents of the binary
+}
+
+#[derive(Hash)]
+pub struct Cell {
+    x: u8,
+    y: u8,
+    rune: u16,
 }
 
 #[derive(PartialEq)]
@@ -32,7 +39,6 @@ pub enum Repr {
     ASCII,
 }
 
-
 /// returns with default values they byte representation of the file
 /// in cols of 5 and in rows of <file_size/5>
 pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr) -> Vec<Spans<'a>> {
@@ -41,9 +47,12 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr) -> Vec<Spans<'a>> {
     for (idx, v) in _data.iter().enumerate() {
         if (idx + 1) % 15 == 0 {
             tmp.push_str("\n");
-            values.push(Spans::from(tmp.clone()));
+            values.push(Spans::from(Span::styled(
+                tmp.clone(),
+                Style::default().fg(Color::White).bg(Color::Black),
+            )));
             tmp.clear();
-        } else if (idx + 1) % 3 == 0 && format == Repr::HEX{
+        } else if (idx + 1) % 3 == 0 && format == Repr::HEX {
             tmp.push_str(" ");
         } else {
             match format {
@@ -54,10 +63,10 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr) -> Vec<Spans<'a>> {
                     if *v > 0x20 && *v < 0x7f {
                         tmp.push_str(&*String::from(format!("{}", *v as char)));
                     } else {
-                        tmp.push_str(&*String::from(format!("."))); 
+                        tmp.push_str(&*String::from(format!(".")));
                     }
                 }
-                _ => ()
+                _ => (),
             }
         }
 
@@ -72,7 +81,7 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr) -> Vec<Spans<'a>> {
 /// 0 and length of the number
 pub fn get_addr_repr<'a>(offset: usize, length: usize) -> Vec<Spans<'a>> {
     let addr_iter: Vec<Spans> = (0..offset)
-        .map(|x| Spans::from(format!("{:01$X}", x * 0x10, length)))
+        .map(|x| Spans::from(format!("{:01$X}", x * 0x10, length))) //.fg(c.unwrap_or(Color::White)).bg(Color::Black))))
         .collect();
     addr_iter
 }
@@ -83,16 +92,18 @@ pub fn app_loop(
     asy_inp: &mut termion::AsyncReader,
     data: &Vec<u8>,
 ) -> Result<(), io::Error> {
-
     // Lock the term and start a drawing session.
     let mut xcursor = 36; // Start of the `value` box
     let mut ycursor = 1; // skip top border line
+                         //    let mut mod_color = Color::White;
+                         //    let mut mod_modif = Modifier::SLOW_BLINK;
+
     loop {
         // TODO On resize reset ycursor and xcursor to box_height, box_width values.
-        
+
         let _box_width = term.size().unwrap().height - 3; // 1 left border, 1 right border
         let box_height = term.size().unwrap().height - 3; // 1 top border, 1 bottom border
-        thread::sleep(time::Duration::from_millis(16)); 
+        thread::sleep(time::Duration::from_millis(16));
         term.draw(|frame| {
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
@@ -106,16 +117,17 @@ pub fn app_loop(
                     .as_ref(),
                 )
                 .split(frame.size());
-
             // Address box
             let addr = get_addr_repr(data.len() / 10, 8);
             let graph = Paragraph::new(addr)
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Address ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
+
             frame.render_widget(graph, chunks[0]);
 
             let _data = get_data_repr(data.to_vec(), Repr::HEX);
+            //            println!("{:?}", _data[1].0[0].content.chars().nth(1).unwrap());
             let graph = Paragraph::new(_data)
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Bytes ").borders(Borders::ALL))
@@ -136,7 +148,7 @@ pub fn app_loop(
         for k in asy_inp.by_ref().keys() {
             match k.unwrap() {
                 // Misc
-                
+
                 // Clearing the terminal
                 Key::Char('q') => {
                     term.clear()?;
@@ -144,22 +156,28 @@ pub fn app_loop(
                 }
 
                 // Navigation Keys
-                Key::Char('l') => { 
+                Key::Char('l') => {
                     if xcursor >= 48 {
                         break;
                     }
                     xcursor += 1;
                 }
                 Key::Char('h') => {
-                    if xcursor <= 36 { break; }
+                    if xcursor <= 36 {
+                        break;
+                    }
                     xcursor -= 1;
                 }
                 Key::Char('j') => {
-                    if ycursor >= box_height + 1 { break; }
+                    if ycursor >= box_height + 1 {
+                        break;
+                    }
                     ycursor += 1;
                 }
                 Key::Char('k') => {
-                    if ycursor <= 1 { break; }
+                    if ycursor <= 1 {
+                        break;
+                    }
                     ycursor -= 1;
                 }
                 Key::Char('g') => {
@@ -168,12 +186,10 @@ pub fn app_loop(
                 }
 
                 // Mutating Keys
-                Key::Char('c') => {
-                    
-                }
+                Key::Char('c') => {}
 
                 // Throw away keys
-                _ => ()
+                _ => (),
             }
         }
     }
