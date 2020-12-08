@@ -46,6 +46,20 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -
     let mut values = Vec::<Spans>::new();
     let mut tmp = String::from("");
     for (idx, v) in _data.iter().enumerate() {
+        match format {
+            Repr::HEX => {
+                tmp.push_str(&*String::from(format!("{:02X}", v))) // passing the values;
+            }
+            Repr::ASCII => {
+                if *v > 0x20 && *v < 0x7f {
+                    tmp.push_str(&*String::from(format!("{}", *v as char)));
+                } else {
+                    tmp.push_str(&*String::from(format!(".")));
+                }
+            }
+            _ => (),
+        }
+
         if (idx + 1) % 16 == 0 {
             tmp.push_str("\n");
             let subs = tmp
@@ -58,24 +72,9 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -
             let v: Vec<Span<'a>> = res.into_iter().map(|s| Span::from(s)).collect();
             values.push(Spans::from(v));
             tmp.clear();
-        //        } else if (idx + 1) % 3 == 0 && format == Repr::HEX {
-        //            tmp.push_str(" ");
-        } else {
-            match format {
-                Repr::HEX => {
-                    tmp.push_str(&*String::from(format!("{:02X}", v))) // passing the values;
-                }
-                Repr::ASCII => {
-                    if *v > 0x20 && *v < 0x7f {
-                        tmp.push_str(&*String::from(format!("{}", *v as char)));
-                    } else {
-                        tmp.push_str(&*String::from(format!(".")));
-                    }
-                }
-                _ => (),
-            }
+            //        } else if (idx + 1) % 3 == 0 && format == Repr::HEX {
+            //            tmp.push_str(" ");
         }
-
         if idx > 0x370 {
             break;
         }
@@ -110,13 +109,9 @@ pub fn app_loop(
     asy_inp: &mut termion::AsyncReader,
     data: &Vec<u8>,
 ) -> Result<(), io::Error> {
-    // Lock the term and start a drawing session.
-    const XCURSOR: u16 = 49;
+    const XCURSOR: u16 = 48;
     let mut xcursor = XCURSOR; // Start of the `value` box
     let mut ycursor = 1; // skip top border line
-                         //    let mut mod_color = Color::White;
-                         //    let mut mod_modif = Modifier::SLOW_BLINK;
-
     loop {
         // TODO On resize reset ycursor and xcursor to box_height, box_width values.
         let _box_width = term.size().unwrap().width - 3; // 1 left border, 1 right border
