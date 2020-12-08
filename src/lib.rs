@@ -31,6 +31,7 @@ pub struct Cell {
 }
 
 #[derive(PartialEq)]
+/// Number Represantation at various bases
 pub enum Repr {
     BINARY,
     OCTAL,
@@ -41,19 +42,24 @@ pub enum Repr {
 
 /// returns with default values they byte representation of the file
 /// in cols of 5 and in rows of <file_size/5>
-pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr) -> Vec<Spans<'a>> {
+pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -> Vec<Spans<'a>> {
     let mut values = Vec::<Spans>::new();
     let mut tmp = String::from("");
     for (idx, v) in _data.iter().enumerate() {
-        if (idx + 1) % 15 == 0 {
+        if (idx + 1) % 16 == 0 {
             tmp.push_str("\n");
-            values.push(Spans::from(Span::styled(
-                tmp.clone(),
-                Style::default().fg(Color::White).bg(Color::Black),
-            )));
+            let subs = tmp
+                .as_bytes()
+                .chunks(2)
+                .map(|s| unsafe { ::std::str::from_utf8_unchecked(s) })
+                .collect::<Vec<_>>();
+
+            let res: Vec<String> = subs.iter().map(|s| s.to_string()).collect();
+            let v: Vec<Span<'a>> = res.into_iter().map(|s| Span::from(s)).collect();
+            values.push(Spans::from(v));
             tmp.clear();
-        } else if (idx + 1) % 3 == 0 && format == Repr::HEX {
-            tmp.push_str(" ");
+        //        } else if (idx + 1) % 3 == 0 && format == Repr::HEX {
+        //            tmp.push_str(" ");
         } else {
             match format {
                 Repr::HEX => {
@@ -74,15 +80,27 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr) -> Vec<Spans<'a>> {
             break;
         }
     }
+    match format {
+        Repr::HEX => values[row].0[col].style = Style::default().fg(Color::Red),
+        _ => (),
+    }
+
     values
 }
 
 /// returns a string representation of address in hex format with offset from
 /// 0 and length of the number
-pub fn get_addr_repr<'a>(offset: usize, length: usize) -> Vec<Spans<'a>> {
-    let addr_iter: Vec<Spans> = (0..offset)
-        .map(|x| Spans::from(format!("{:01$X}", x * 0x10, length))) //.fg(c.unwrap_or(Color::White)).bg(Color::Black))))
+pub fn get_addr_repr<'a>(offset: usize, length: usize, col: usize) -> Vec<Spans<'a>> {
+    let mut addr_iter: Vec<Spans> = (0..offset)
+        .map(|x| {
+            Spans::from(Span::styled(
+                format!("{:01$X}", x * 0x10, length),
+                Style::default(),
+            ))
+        }) //.fg(c.unwrap_or(Color::White)).bg(Color::Black))))
         .collect();
+
+    addr_iter[col].0[0].style = Style::default().fg(Color::Magenta);
     addr_iter
 }
 
@@ -93,15 +111,15 @@ pub fn app_loop(
     data: &Vec<u8>,
 ) -> Result<(), io::Error> {
     // Lock the term and start a drawing session.
-    let mut xcursor = 36; // Start of the `value` box
+    const XCURSOR: u16 = 49;
+    let mut xcursor = XCURSOR; // Start of the `value` box
     let mut ycursor = 1; // skip top border line
                          //    let mut mod_color = Color::White;
                          //    let mut mod_modif = Modifier::SLOW_BLINK;
 
     loop {
         // TODO On resize reset ycursor and xcursor to box_height, box_width values.
-
-        let _box_width = term.size().unwrap().height - 3; // 1 left border, 1 right border
+        let _box_width = term.size().unwrap().width - 3; // 1 left border, 1 right border
         let box_height = term.size().unwrap().height - 3; // 1 top border, 1 bottom border
         thread::sleep(time::Duration::from_millis(16));
         term.draw(|frame| {
@@ -110,24 +128,27 @@ pub fn app_loop(
                 .constraints(
                     [
                         Constraint::Length(10), // addresses with padding
-                        Constraint::Length(25), // 25 = 2 (2 nibble = byte) * 10 (byte) + 5 (spaces)
-                        Constraint::Length(15),
+                        Constraint::Length(36), // 25 = 2 (2 nibble = byte) * 10 (byte) + 5 (spaces)
+                        Constraint::Length(21), // value box
                         Constraint::Length(100),
                     ]
                     .as_ref(),
                 )
                 .split(frame.size());
             // Address box
-            let addr = get_addr_repr(data.len() / 10, 8);
+            let addr = get_addr_repr(data.len() / 10, 8, (ycursor - 1) as usize);
             let graph = Paragraph::new(addr)
-                .alignment(Alignment::Center)
                 .block(Block::default().title(" Address ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
             frame.render_widget(graph, chunks[0]);
 
-            let _data = get_data_repr(data.to_vec(), Repr::HEX);
-            //            println!("{:?}", _data[1].0[0].content.chars().nth(1).unwrap());
+            let _data = get_data_repr(
+                data.to_vec(),
+                Repr::HEX,
+                (xcursor - XCURSOR) as usize,
+                (ycursor - 1) as usize,
+            );
             let graph = Paragraph::new(_data)
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Bytes ").borders(Borders::ALL))
@@ -135,7 +156,12 @@ pub fn app_loop(
 
             frame.render_widget(graph, chunks[1]);
 
-            let _ascii = get_data_repr(data.to_vec(), Repr::ASCII);
+            let _ascii = get_data_repr(
+                data.to_vec(),
+                Repr::ASCII,
+                (xcursor - XCURSOR) as usize,
+                (ycursor - 1) as usize,
+            );
             let graph = Paragraph::new(_ascii)
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Value ").borders(Borders::ALL))
@@ -157,13 +183,14 @@ pub fn app_loop(
 
                 // Navigation Keys
                 Key::Char('l') => {
-                    if xcursor >= 48 {
+                    if xcursor >= XCURSOR + 15 {
+                        // Constraint -3 from border lines and 0 indexing
                         break;
                     }
                     xcursor += 1;
                 }
                 Key::Char('h') => {
-                    if xcursor <= 36 {
+                    if xcursor <= XCURSOR {
                         break;
                     }
                     xcursor -= 1;
@@ -181,7 +208,7 @@ pub fn app_loop(
                     ycursor -= 1;
                 }
                 Key::Char('g') => {
-                    xcursor = 36;
+                    xcursor = XCURSOR;
                     ycursor = 1;
                 }
 
