@@ -14,3 +14,9 @@ termion = "1.5"
 tui = "0.13"
 failure = "0.1.8"
 rand = "0.7.3"
+
+[profile.dev]
+opt-level=0
+
+[profile.release]
+opt-level=3

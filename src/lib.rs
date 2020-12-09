@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::env;
 use std::fs;
 use std::io;
@@ -40,6 +41,18 @@ pub enum Repr {
     ASCII,
 }
 
+fn scrl() -> fn(u16) -> (u16, u16) {
+    |x| {
+        if x > 5 {
+            (x - 5, 0)
+        } else {
+            (0, 0)
+        }
+    }
+}
+
+pub fn change_byte(buff: Vec<u8>, x: u16, y: u16) {}
+
 /// returns with default values they byte representation of the file
 /// in cols of 5 and in rows of <file_size/5>
 pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -> Vec<Spans<'a>> {
@@ -75,9 +88,6 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -
             //        } else if (idx + 1) % 3 == 0 && format == Repr::HEX {
             //            tmp.push_str(" ");
         }
-        if idx > 0x370 {
-            break;
-        }
     }
     match format {
         Repr::HEX => values[row].0[col].style = Style::default().fg(Color::Red),
@@ -109,7 +119,9 @@ pub fn app_loop(
     asy_inp: &mut termion::AsyncReader,
     data: &Vec<u8>,
 ) -> Result<(), io::Error> {
-    const XCURSOR: u16 = 48;
+    const XCURSOR: u16 = 48; // Top Left modifiable cell
+    const YCURSOR: u16 = 1; // Top line
+
     let mut xcursor = XCURSOR; // Start of the `value` box
     let mut ycursor = 1; // skip top border line
     loop {
@@ -117,6 +129,25 @@ pub fn app_loop(
         let _box_width = term.size().unwrap().width - 3; // 1 left border, 1 right border
         let box_height = term.size().unwrap().height - 3; // 1 top border, 1 bottom border
         thread::sleep(time::Duration::from_millis(16));
+        // Vectors
+
+        // Address box
+        let addr = get_addr_repr(data.len() / 10, 8, (ycursor - 1) as usize);
+        // Hex value box
+        let mut _data = get_data_repr(
+            data.to_vec(),
+            Repr::HEX,
+            (xcursor - XCURSOR) as usize,
+            (ycursor - 1) as usize,
+        );
+        // Modifiable ascii box
+        let mut _ascii = get_data_repr(
+            data.to_vec(),
+            Repr::ASCII,
+            (xcursor - XCURSOR) as usize,
+            (ycursor - 1) as usize,
+        );
+
         term.draw(|frame| {
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
@@ -131,38 +162,28 @@ pub fn app_loop(
                 )
                 .split(frame.size());
             // Address box
-            let addr = get_addr_repr(data.len() / 10, 8, (ycursor - 1) as usize);
             let graph = Paragraph::new(addr)
                 .block(Block::default().title(" Address ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
-            frame.render_widget(graph, chunks[0]);
-
-            let _data = get_data_repr(
-                data.to_vec(),
-                Repr::HEX,
-                (xcursor - XCURSOR) as usize,
-                (ycursor - 1) as usize,
-            );
-            let graph = Paragraph::new(_data)
+            // Hex bytes box
+            let graph1 = Paragraph::new(_data)
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Bytes ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
-            frame.render_widget(graph, chunks[1]);
-
-            let _ascii = get_data_repr(
-                data.to_vec(),
-                Repr::ASCII,
-                (xcursor - XCURSOR) as usize,
-                (ycursor - 1) as usize,
-            );
-            let graph = Paragraph::new(_ascii)
+            // Values box
+            let graph2 = Paragraph::new(_ascii)
+                .scroll(scrl()(ycursor))
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Value ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
-            frame.render_widget(graph, chunks[2]);
+            // Rendering
+            frame.render_widget(graph, chunks[0]);
+            frame.render_widget(graph1, chunks[1]);
+            frame.render_widget(graph2, chunks[2]);
+
             frame.set_cursor(xcursor, ycursor);
         })?;
 
@@ -208,7 +229,10 @@ pub fn app_loop(
                 }
 
                 // Mutating Keys
-                Key::Char('c') => {}
+                Key::Char('c') => {
+                    //                    _ascii[(xcursor - XCURSOR) as usize].0[(ycursor - YCURSOR + 1) as usize]
+                    //                        .content = Cow::from("a");
+                }
 
                 // Throw away keys
                 _ => (),
