@@ -116,7 +116,7 @@ pub fn app_loop(
     term: &mut terminal::Terminal<TermionBackend<RawTerminal<io::Stdout>>>,
     asy_inp: &mut termion::AsyncReader,
     __data: &Vec<u8>,
-) -> Result<(), io::Error> {
+) -> Result<Option<Vec<u8>>, io::Error> {
     const XCURSOR: u16 = 48; // Top Left modifiable cell
                              //    const YCURSOR: u16 = 1; // Top line
 
@@ -194,7 +194,7 @@ pub fn app_loop(
                 // Clearing the terminal
                 Key::Char('q') => {
                     term.clear()?;
-                    return Ok(());
+                    return Ok(Some(data));
                 }
 
                 // Navigation Keys
@@ -234,12 +234,17 @@ pub fn app_loop(
                     let mut b: u8 =
                         data[(xcursor - (XCURSOR) + (16 * (ycursor - 1))) as usize] as u8;
 
-                    thread::sleep(time::Duration::from_millis(300));
+                    thread::sleep(time::Duration::from_millis(500));
                     while let Some(Ok((_, k))) = asy_inp.by_ref().events_and_raw().next() {
                         b = k[0]
                     }
                     data[(xcursor - (XCURSOR) + (16 * (ycursor - 1))) as usize] = (b as char) as u8;
                     break;
+                }
+
+                Key::Char('s') => {
+                    term.clear()?;
+                    return Ok(Some(data));
                 }
 
                 // Throw away keys

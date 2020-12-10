@@ -1,5 +1,5 @@
 use hexi::{app_loop, new_file, Binary};
-use std::io;
+use std::{fs, io};
 use termion::async_stdin;
 use termion::raw::IntoRawMode;
 use tui::backend::TermionBackend;
@@ -27,10 +27,14 @@ fn main() -> Result<(), io::Error> {
     // Clear the terminal
     terminal.clear()?;
 
-    match app_loop(&mut terminal, &mut asi, &binary.buffer) {
-        Ok(_) => Ok(()),
-        Err(err) => Err(err),
-    }
+    let saved = match app_loop(&mut terminal, &mut asi, &binary.buffer) {
+        Ok(d) => Ok(d),
+        Err(_) => Err(()),
+    };
+
+    fs::write("out", saved.unwrap().unwrap())?;
+
+    Ok(())
 }
 
 // Implementation of a dwarf devourer using gimli lib //
