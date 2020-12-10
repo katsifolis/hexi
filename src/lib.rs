@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::env;
 use std::fs;
 use std::io;
@@ -7,7 +6,7 @@ use std::process;
 use std::thread;
 use std::time;
 use termion::event::Key;
-use termion::input::TermRead;
+use termion::input::{TermRead, TermReadEventsAndRaw};
 use termion::raw::RawTerminal;
 use tui::backend::TermionBackend;
 use tui::layout::{Alignment, Constraint, Direction, Layout};
@@ -41,6 +40,7 @@ pub enum Repr {
     ASCII,
 }
 
+#[allow(dead_code)]
 fn scrl() -> fn(u16) -> (u16, u16) {
     |x| {
         if x > 5 {
@@ -50,8 +50,6 @@ fn scrl() -> fn(u16) -> (u16, u16) {
         }
     }
 }
-
-pub fn change_byte(buff: Vec<u8>, x: u16, y: u16) {}
 
 /// returns with default values they byte representation of the file
 /// in cols of 5 and in rows of <file_size/5>
@@ -117,13 +115,15 @@ pub fn get_addr_repr<'a>(offset: usize, length: usize, col: usize) -> Vec<Spans<
 pub fn app_loop(
     term: &mut terminal::Terminal<TermionBackend<RawTerminal<io::Stdout>>>,
     asy_inp: &mut termion::AsyncReader,
-    data: &Vec<u8>,
+    __data: &Vec<u8>,
 ) -> Result<(), io::Error> {
     const XCURSOR: u16 = 48; // Top Left modifiable cell
-    const YCURSOR: u16 = 1; // Top line
+                             //    const YCURSOR: u16 = 1; // Top line
 
     let mut xcursor = XCURSOR; // Start of the `value` box
     let mut ycursor = 1; // skip top border line
+    let mut data = __data.to_vec();
+
     loop {
         // TODO On resize reset ycursor and xcursor to box_height, box_width values.
         let _box_width = term.size().unwrap().width - 3; // 1 left border, 1 right border
@@ -174,7 +174,7 @@ pub fn app_loop(
 
             // Values box
             let graph2 = Paragraph::new(_ascii)
-                .scroll(scrl()(ycursor))
+                //                .scroll(scrl()(ycursor))
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Value ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
@@ -230,8 +230,16 @@ pub fn app_loop(
 
                 // Mutating Keys
                 Key::Char('c') => {
-                    //                    _ascii[(xcursor - XCURSOR) as usize].0[(ycursor - YCURSOR + 1) as usize]
-                    //                        .content = Cow::from("a");
+                    // Clunky way to block async_input and get character to change under the cursor
+                    let mut b: u8 =
+                        data[(xcursor - (XCURSOR) + (16 * (ycursor - 1))) as usize] as u8;
+
+                    thread::sleep(time::Duration::from_millis(300));
+                    while let Some(Ok((_, k))) = asy_inp.by_ref().events_and_raw().next() {
+                        b = k[0]
+                    }
+                    data[(xcursor - (XCURSOR) + (16 * (ycursor - 1))) as usize] = (b as char) as u8;
+                    break;
                 }
 
                 // Throw away keys
