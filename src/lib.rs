@@ -16,7 +16,6 @@ use tui::text::{Span, Spans};
 use tui::widgets::{Block, Borders, Paragraph};
 
 #[allow(dead_code)]
-
 /// Contains info about the binary file
 pub struct Binary {
     pub name: String,    // Name of the file
@@ -29,11 +28,11 @@ pub struct Cell {
     y: u8,
     rune: u16,
 }
-
 #[derive(PartialEq)]
 /// Number Represantation at various bases
 pub enum Repr {
     BINARY,
+
     OCTAL,
     DECIMAL,
     HEX,
@@ -156,7 +155,7 @@ pub fn app_loop(
                         Constraint::Length(10), // addresses with padding
                         Constraint::Length(36), // 25 = 2 (2 nibble = byte) * 10 (byte) + 5 (spaces)
                         Constraint::Length(21), // value box
-                        Constraint::Length(100),
+                        Constraint::Min(10),
                     ]
                     .as_ref(),
                 )
@@ -179,11 +178,22 @@ pub fn app_loop(
                 .block(Block::default().title(" Value ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
+            // Info box
+            let _info = Spans::from(vec![Span::styled(
+                "It is me Mario !!\n",
+                Style::default().fg(Color::Yellow),
+            )]);
+
+            let graph3 = Paragraph::new(_info)
+                .alignment(Alignment::Center)
+                .block(Block::default().title(" Info ").borders(Borders::ALL))
+                .style(Style::default().fg(Color::White).bg(Color::Black));
+
             // Rendering
             frame.render_widget(graph, chunks[0]);
             frame.render_widget(graph1, chunks[1]);
             frame.render_widget(graph2, chunks[2]);
-
+            frame.render_widget(graph3, chunks[3]);
             frame.set_cursor(xcursor, ycursor);
         })?;
 

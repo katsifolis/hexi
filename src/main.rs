@@ -11,9 +11,6 @@ fn main() -> Result<(), io::Error> {
         name: "hi".to_string(),
         buffer: new_file().unwrap(),
     };
-    //    drw_data(binary.buffer);
-    //
-    //    Ok(())
 
     // Set up terminal output
     let stdout = io::stdout().into_raw_mode()?;
@@ -36,9 +33,6 @@ fn main() -> Result<(), io::Error> {
 
     Ok(())
 }
-
-// Implementation of a dwarf devourer using gimli lib //
-// A simple example of parsing `.debug_info`.
 
 //let buffer = hexi::new_file().unwrap();
 //println!("{:?}", buffer);
