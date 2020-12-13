@@ -50,6 +50,7 @@ fn scrl() -> fn(u16) -> (u16, u16) {
     }
 }
 
+pub fn next_page() {}
 /// returns with default values they byte representation of the file
 /// in cols of 5 and in rows of <file_size/5>
 pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -> Vec<Spans<'a>> {
@@ -122,7 +123,9 @@ pub fn app_loop(
     let mut xcursor = XCURSOR; // Start of the `value` box
     let mut ycursor = 1; // skip top border line
     let mut data = __data.to_vec();
-
+    let data_len = __data.len();
+    let mut osy = 0;
+    let mut page_num = 0;
     loop {
         // TODO On resize reset ycursor and xcursor to box_height, box_width values.
         let _box_width = term.size().unwrap().width - 3; // 1 left border, 1 right border
@@ -131,7 +134,7 @@ pub fn app_loop(
         // Vectors
 
         // Address box
-        let addr = get_addr_repr(data.len() / 10, 8, (ycursor - 1) as usize);
+        let addr = get_addr_repr(data_len / 10, 8, (ycursor - 1) as usize);
         // Hex value box
         let mut _data = get_data_repr(
             data.to_vec(),
@@ -156,24 +159,27 @@ pub fn app_loop(
                         Constraint::Length(36), // 25 = 2 (2 nibble = byte) * 10 (byte) + 5 (spaces)
                         Constraint::Length(21), // value box
                         Constraint::Min(10),
+                        Constraint::Length(100),
                     ]
                     .as_ref(),
                 )
                 .split(frame.size());
             // Address box
             let graph = Paragraph::new(addr)
+                .scroll((osy, 0))
                 .block(Block::default().title(" Address ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
             // Hex bytes box
             let graph1 = Paragraph::new(_data)
+                .scroll((osy, 0))
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Bytes ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
 
             // Values box
             let graph2 = Paragraph::new(_ascii)
-                //                .scroll(scrl()(ycursor))
+                .scroll((osy, 0))
                 .alignment(Alignment::Center)
                 .block(Block::default().title(" Value ").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White).bg(Color::Black));
@@ -237,18 +243,39 @@ pub fn app_loop(
                     xcursor = XCURSOR;
                     ycursor = 1;
                 }
+                // Next page key
+                Key::Char('n') => {
+                    let h = term.size().unwrap().height - 2;
+                    osy = osy + h; // offset scroll x
+                    page_num += h;
+                }
 
+                Key::Char('p') => {
+                    if osy == 0 || ycursor == 0 {
+                        break;
+                    };
+                    let h = term.size().unwrap().height - 2;
+                    osy = osy - h; // offset scroll x
+                    page_num -= h;
+                }
+                // Key::Char('z') => {
+                //     term.clear()?;
+                //     dbg!(term.size().unwrap().height);
+                //     thread::sleep(time::Duration::from_millis(100));
+                // }
                 // Mutating Keys
                 Key::Char('c') => {
                     // Clunky way to block async_input and get character to change under the cursor
-                    let mut b: u8 =
-                        data[(xcursor - (XCURSOR) + (16 * (ycursor - 1))) as usize] as u8;
+                    let mut b: u8 = data
+                        [(xcursor - (XCURSOR) + (16 * ((ycursor + page_num) - 1))) as usize]
+                        as u8;
 
                     thread::sleep(time::Duration::from_millis(500));
                     while let Some(Ok((_, k))) = asy_inp.by_ref().events_and_raw().next() {
                         b = k[0]
                     }
-                    data[(xcursor - (XCURSOR) + (16 * (ycursor - 1))) as usize] = (b as char) as u8;
+                    data[(xcursor - (XCURSOR) + (16 * ((ycursor + page_num) - 1))) as usize] =
+                        (b as char) as u8;
                     break;
                 }
 
