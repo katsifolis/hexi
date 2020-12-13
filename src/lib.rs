@@ -32,7 +32,6 @@ pub struct Cell {
 /// Number Represantation at various bases
 pub enum Repr {
     BINARY,
-
     OCTAL,
     DECIMAL,
     HEX,
@@ -124,8 +123,8 @@ pub fn app_loop(
     let mut ycursor = 1; // skip top border line
     let mut data = __data.to_vec();
     let data_len = __data.len();
-    let mut osy = 0;
-    let mut page_num = 0;
+    let mut osy: u16 = 0;
+    let mut page_num: u16 = 0;
     loop {
         // TODO On resize reset ycursor and xcursor to box_height, box_width values.
         let _box_width = term.size().unwrap().width - 3; // 1 left border, 1 right border
@@ -134,20 +133,20 @@ pub fn app_loop(
         // Vectors
 
         // Address box
-        let addr = get_addr_repr(data_len / 10, 8, (ycursor - 1) as usize);
+        let addr = get_addr_repr(data_len / 10, 8, ((ycursor + page_num) - 1) as usize);
         // Hex value box
         let mut _data = get_data_repr(
             data.to_vec(),
             Repr::HEX,
             (xcursor - XCURSOR) as usize,
-            (ycursor - 1) as usize,
+            ((ycursor + page_num) - 1) as usize,
         );
         // Modifiable ascii box
         let mut _ascii = get_data_repr(
             data.to_vec(),
             Repr::ASCII,
             (xcursor - XCURSOR) as usize,
-            (ycursor - 1) as usize,
+            ((ycursor + page_num) - 1) as usize,
         );
 
         term.draw(|frame| {
@@ -245,23 +244,26 @@ pub fn app_loop(
                 }
                 // Next page key
                 Key::Char('n') => {
+                    // if page_num >= ((data_len / 0x10) - ) as u16 {
+                    //     break;
+                    // }
                     let h = term.size().unwrap().height - 2;
                     osy = osy + h; // offset scroll x
                     page_num += h;
+                    term.clear()?;
+                    thread::sleep(time::Duration::from_millis(100));
+                    dbg!((data.len() / 0x10) - 32);
                 }
 
                 Key::Char('p') => {
-                    if osy == 0 || ycursor == 0 {
+                    if osy <= 0 || ycursor <= 0 {
                         break;
                     };
                     let h = term.size().unwrap().height - 2;
-                    osy = osy - h; // offset scroll x
-                    page_num -= h;
+                    osy = osy.checked_sub(h).unwrap_or(0u16);
+                    page_num = page_num.checked_sub(h).unwrap_or(0u16);
                 }
-                // Key::Char('z') => {
-                //     term.clear()?;
-                //     dbg!(term.size().unwrap().height);
-                //     thread::sleep(time::Duration::from_millis(100));
+
                 // }
                 // Mutating Keys
                 Key::Char('c') => {
