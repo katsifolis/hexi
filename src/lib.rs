@@ -82,8 +82,6 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -
             let v: Vec<Span<'a>> = res.into_iter().map(|s| Span::from(s)).collect();
             values.push(Spans::from(v));
             tmp.clear();
-            //        } else if (idx + 1) % 3 == 0 && format == Repr::HEX {
-            //            tmp.push_str(" ");
         }
     }
     match format {
@@ -126,7 +124,6 @@ pub fn app_loop(
     let mut osy: u16 = 0;
     let mut page_num: u16 = 0;
     loop {
-        // TODO On resize reset ycursor and xcursor to box_height, box_width values.
         let _box_width = term.size().unwrap().width - 3; // 1 left border, 1 right border
         let box_height = term.size().unwrap().height - 3; // 1 top border, 1 bottom border
         thread::sleep(time::Duration::from_millis(16));
@@ -244,9 +241,9 @@ pub fn app_loop(
                 }
                 // Next page key
                 Key::Char('n') => {
-                    // if page_num >= ((data_len / 0x10) - ) as u16 {
-                    //     break;
-                    // }
+                    if page_num > ((data_len / 0x10) - (box_height as usize)) as u16 {
+                        break;
+                    }
                     let h = term.size().unwrap().height - 2;
                     osy = osy + h; // offset scroll x
                     page_num += h;
