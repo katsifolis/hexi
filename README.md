@@ -2,8 +2,9 @@
 
 # Final Project for HUA 
 ---
-
 ## TODO
+
+- Remove col, row from get_addr_repr definition and make it do a simple one thing
 
 ### Important
 - FIX: out of bound navigation and panics.

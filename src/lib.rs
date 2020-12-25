@@ -1,19 +1,18 @@
+#![warn(unused_extern_crates)]
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io;
 use std::io::Read;
+use std::io::Stdout;
+use std::io::Write;
 use std::process;
 use std::thread;
 use std::time;
 use termion::event::Key;
 use termion::input::{TermRead, TermReadEventsAndRaw};
-use termion::raw::RawTerminal;
-use tui::backend::TermionBackend;
-use tui::layout::{Alignment, Constraint, Direction, Layout};
-use tui::style::{Color, Style};
-use tui::terminal;
-use tui::text::{Span, Spans};
-use tui::widgets::{Block, Borders, Paragraph};
+use termion::raw::{IntoRawMode, RawTerminal};
+use termion::{async_stdin, clear, cursor, terminal_size};
 
 #[allow(dead_code)]
 /// Contains info about the binary file
@@ -49,13 +48,12 @@ fn scrl() -> fn(u16) -> (u16, u16) {
     }
 }
 
-pub fn next_page() {}
 /// returns with default values they byte representation of the file
 /// in cols of 5 and in rows of <file_size/5>
-pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -> Vec<Spans<'a>> {
-    let mut values = Vec::<Spans>::new();
+pub fn get_data_repr(_data: Vec<u8>, format: Repr, s: usize, o: usize) -> Vec<String> {
+    let mut values = Vec::<String>::new();
     let mut tmp = String::from("");
-    for (idx, v) in _data.iter().enumerate() {
+    for (idx, v) in _data[s..o].iter().enumerate() {
         match format {
             Repr::HEX => {
                 tmp.push_str(&*String::from(format!("{:02X}", v))) // passing the values;
@@ -72,222 +70,168 @@ pub fn get_data_repr<'a>(_data: Vec<u8>, format: Repr, col: usize, row: usize) -
 
         if (idx + 1) % 16 == 0 {
             tmp.push_str("\n");
-            let subs = tmp
-                .as_bytes()
-                .chunks(2)
-                .map(|s| unsafe { ::std::str::from_utf8_unchecked(s) })
-                .collect::<Vec<_>>();
-
-            let res: Vec<String> = subs.iter().map(|s| s.to_string()).collect();
-            let v: Vec<Span<'a>> = res.into_iter().map(|s| Span::from(s)).collect();
-            values.push(Spans::from(v));
+            let res = tmp.clone();
+            values.push(res);
             tmp.clear();
         }
     }
-    match format {
-        Repr::HEX => values[row].0[col].style = Style::default().fg(Color::Red),
-        _ => (),
-    }
-
     values
+}
+
+pub fn term_clear(file: &mut RawTerminal<Stdout>) -> Result<(), (io::Error)> {
+    write!(file, "{}", termion::clear::All);
+    file.flush()
 }
 
 /// returns a string representation of address in hex format with offset from
 /// 0 and length of the number
-pub fn get_addr_repr<'a>(offset: usize, length: usize, col: usize) -> Vec<Spans<'a>> {
-    let mut addr_iter: Vec<Spans> = (0..offset)
-        .map(|x| {
-            Spans::from(Span::styled(
-                format!("{:01$X}", x * 0x10, length),
-                Style::default(),
-            ))
-        }) //.fg(c.unwrap_or(Color::White)).bg(Color::Black))))
-        .collect();
-
-    addr_iter[col].0[0].style = Style::default().fg(Color::Magenta);
-    addr_iter
+pub fn get_addr_repr<'a>(s: usize, o: usize, length: usize) -> HashMap<usize, String> {
+    (s..o)
+        .map(|x| (x, format!("{:01$X}", x * 0x10, length)))
+        .collect::<HashMap<usize, String>>()
 }
+
+pub fn draw() {}
 
 /// contains the loop in which the program runs.
 pub fn app_loop(
-    term: &mut terminal::Terminal<TermionBackend<RawTerminal<io::Stdout>>>,
-    asy_inp: &mut termion::AsyncReader,
+    stdout: &mut RawTerminal<Stdout>,
+    //asy_inp: &mut termion::AsyncReader,
     __data: &Vec<u8>,
 ) -> Result<Option<Vec<u8>>, io::Error> {
-    const XCURSOR: u16 = 48; // Top Left modifiable cell
-                             //    const YCURSOR: u16 = 1; // Top line
+    // Hardcoded bad..
+    const XCURSOR: u16 = 1; //48; // Top Left modifiable cell
+    const YCURSOR: u16 = 1; // Top line
+    let mut reader = io::stdin();
 
     let mut xcursor = XCURSOR; // Start of the `value` box
-    let mut ycursor = 1; // skip top border line
+    let mut ycursor = YCURSOR; // skip top border line
     let mut data = __data.to_vec();
-    let data_len = __data.len();
-    let mut osy: u16 = 0;
+    let mut osy: u16 = 0; // offset of scrolling vertically
     let mut page_num: u16 = 0;
-    loop {
-        let _box_width = term.size().unwrap().width - 3; // 1 left border, 1 right border
-        let box_height = term.size().unwrap().height - 3; // 1 top border, 1 bottom border
-        thread::sleep(time::Duration::from_millis(16));
-        // Vectors
+    let height = terminal_size().unwrap().1;
 
-        // Address box
-        let addr = get_addr_repr(data_len / 10, 8, ((ycursor + page_num) - 1) as usize);
-        // Hex value box
-        let mut _data = get_data_repr(
-            data.to_vec(),
-            Repr::HEX,
-            (xcursor - XCURSOR) as usize,
-            ((ycursor + page_num) - 1) as usize,
-        );
-        // Modifiable ascii box
-        let mut _ascii = get_data_repr(
-            data.to_vec(),
-            Repr::ASCII,
-            (xcursor - XCURSOR) as usize,
-            ((ycursor + page_num) - 1) as usize,
-        );
+    let mut addr = get_addr_repr(page_num.into(), (height + page_num).into(), 8);
+    //addr[(ycursor - 1) as usize].0[0].style = Style::default().fg(Color::Magenta);
+    // Hex value box
+    let mut _data = get_data_repr(data.to_vec(), Repr::HEX, 0, 1000);
+    //    _data[(ycursor - 1) as usize].0[(xcursor - XCURSOR) as usize].style =
+    //       Style::default().fg(Color::Green);
+    //// Modifiable ascii box
+    let mut _ascii = get_data_repr(data.to_vec(), Repr::ASCII, 0, 1000);
+    //// Coloring
+    write!(
+        stdout,
+        "{}{}",
+        // Clear the screen.
+        termion::clear::All,
+        // Goto (1,1).
+        termion::cursor::Goto(1, 1),
+        // Hide the cursor.
+    )
+    .unwrap();
+    // Flush stdout (i.e. make the output appear).
 
-        term.draw(|frame| {
-            let chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(
-                    [
-                        Constraint::Length(10), // addresses with padding
-                        Constraint::Length(36), // 25 = 2 (2 nibble = byte) * 10 (byte) + 5 (spaces)
-                        Constraint::Length(21), // value box
-                        Constraint::Min(10),
-                        Constraint::Length(100),
-                    ]
-                    .as_ref(),
-                )
-                .split(frame.size());
-            // Address box
-            let graph = Paragraph::new(addr)
-                .scroll((osy, 0))
-                .block(Block::default().title(" Address ").borders(Borders::ALL))
-                .style(Style::default().fg(Color::White).bg(Color::Black));
-
-            // Hex bytes box
-            let graph1 = Paragraph::new(_data)
-                .scroll((osy, 0))
-                .alignment(Alignment::Center)
-                .block(Block::default().title(" Bytes ").borders(Borders::ALL))
-                .style(Style::default().fg(Color::White).bg(Color::Black));
-
-            // Values box
-            let graph2 = Paragraph::new(_ascii)
-                .scroll((osy, 0))
-                .alignment(Alignment::Center)
-                .block(Block::default().title(" Value ").borders(Borders::ALL))
-                .style(Style::default().fg(Color::White).bg(Color::Black));
-
-            // Info box
-            let _info = Spans::from(vec![Span::styled(
-                "It is me Mario !!\n",
-                Style::default().fg(Color::Yellow),
-            )]);
-
-            let graph3 = Paragraph::new(_info)
-                .alignment(Alignment::Center)
-                .block(Block::default().title(" Info ").borders(Borders::ALL))
-                .style(Style::default().fg(Color::White).bg(Color::Black));
-
-            // Rendering
-            frame.render_widget(graph, chunks[0]);
-            frame.render_widget(graph1, chunks[1]);
-            frame.render_widget(graph2, chunks[2]);
-            frame.render_widget(graph3, chunks[3]);
-            frame.set_cursor(xcursor, ycursor);
-        })?;
-
-        for k in asy_inp.by_ref().keys() {
-            match k.unwrap() {
-                // Misc
-
-                // Clearing the terminal
-                Key::Char('q') => {
-                    term.clear()?;
-                    return Ok(Some(data));
-                }
-
-                // Navigation Keys
-                Key::Char('l') => {
-                    if xcursor >= XCURSOR + 15 {
-                        // Constraint -3 from border lines and 0 indexing
-                        break;
-                    }
-                    xcursor += 1;
-                }
-                Key::Char('h') => {
-                    if xcursor <= XCURSOR {
-                        break;
-                    }
-                    xcursor -= 1;
-                }
-                Key::Char('j') => {
-                    if ycursor >= box_height + 1 {
-                        break;
-                    }
-                    ycursor += 1;
-                }
-                Key::Char('k') => {
-                    if ycursor <= 1 {
-                        break;
-                    }
-                    ycursor -= 1;
-                }
-                Key::Char('g') => {
-                    xcursor = XCURSOR;
-                    ycursor = 1;
-                }
-                // Next page key
-                Key::Char('n') => {
-                    if page_num > ((data_len / 0x10) - (box_height as usize)) as u16 {
-                        break;
-                    }
-                    let h = term.size().unwrap().height - 2;
-                    osy = osy + h; // offset scroll x
-                    page_num += h;
-                    term.clear()?;
-                    thread::sleep(time::Duration::from_millis(100));
-                    dbg!((data.len() / 0x10) - 32);
-                }
-
-                Key::Char('p') => {
-                    if osy <= 0 || ycursor <= 0 {
-                        break;
-                    };
-                    let h = term.size().unwrap().height - 2;
-                    osy = osy.checked_sub(h).unwrap_or(0u16);
-                    page_num = page_num.checked_sub(h).unwrap_or(0u16);
-                }
-
-                // }
-                // Mutating Keys
-                Key::Char('c') => {
-                    // Clunky way to block async_input and get character to change under the cursor
-                    let mut b: u8 = data
-                        [(xcursor - (XCURSOR) + (16 * ((ycursor + page_num) - 1))) as usize]
-                        as u8;
-
-                    thread::sleep(time::Duration::from_millis(500));
-                    while let Some(Ok((_, k))) = asy_inp.by_ref().events_and_raw().next() {
-                        b = k[0]
-                    }
-                    data[(xcursor - (XCURSOR) + (16 * ((ycursor + page_num) - 1))) as usize] =
-                        (b as char) as u8;
-                    break;
-                }
-
-                Key::Char('s') => {
-                    term.clear()?;
-                    return Ok(Some(data));
-                }
-
-                // Throw away keys
-                _ => (),
-            }
-        }
+    for i in 0..addr.len() - 1 {
+        write!(stdout, "{}\n\r", addr[&i]);
     }
+    write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
+    stdout.flush().unwrap();
+
+    let mut bytes = reader.bytes();
+    loop {
+        let b = bytes.next().unwrap().unwrap();
+        match b {
+            // Clearing the terminal
+            b'q' => {
+                termion::cursor::Goto(1, 1);
+                term_clear(stdout).unwrap();
+                write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
+                return Ok(Some(data));
+            }
+
+            // Navigation Keys
+            b'l' => {
+                xcursor += 1;
+                if xcursor >= XCURSOR + 15 {
+                    // Constraint -3 from border lines and 0 indexing
+                    continue;
+                }
+                write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
+            }
+            b'h' => {
+                if xcursor <= XCURSOR {
+                    continue;
+                }
+                xcursor -= 1;
+                write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
+            }
+            b'j' => {
+                if ycursor >= height + 1 {
+                    continue;
+                }
+                ycursor += 1;
+                write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
+            }
+            b'k' => {
+                if ycursor <= 1 {
+                    continue;
+                }
+                ycursor -= 1;
+                write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor));
+            }
+            b'g' => {
+                xcursor = XCURSOR;
+                ycursor = 1;
+                write!(stdout, "{}", termion::cursor::Goto(1, 1)).unwrap();
+            }
+            // Next page key
+            b'n' => {
+                //    if page_num > ((data_len / 0x10) - (box_height as usize)) as u16 {
+                //        break;
+                //    }
+                osy = osy + height; // offset scroll x
+                page_num = page_num + height;
+                addr = get_addr_repr(page_num.into(), (height + page_num).into(), 8);
+                //term.clear()?;
+                //thread::sleep(time::Duration::from_millis(100));
+                //dbg!((data.len() / 0x10) - 32);
+            }
+
+            b'p' => {
+                if osy <= 0 || ycursor <= 0 {
+                    break;
+                };
+                osy = osy.checked_sub(height).unwrap_or(0u16);
+                page_num = page_num.checked_sub(height).unwrap_or(0u16);
+                termion::cursor::Goto(xcursor, ycursor);
+            }
+
+            // Mutating Keys
+            //            b'c' => {
+            //                // Clunky way to block async_input and get character to change under the cursor
+            //                let mut b: u8 =
+            //                    data[(xcursor - (XCURSOR) + (16 * ((ycursor + page_num) - 1))) as usize] as u8;
+            //
+            //                thread::sleep(time::Duration::from_millis(500));
+            //                while let Some(Ok((_, k))) = asi.by_ref().events_and_raw().next() {
+            //                    b = k[0]
+            //                }
+            //                data[(xcursor - (XCURSOR) + (16 * ((ycursor + page_num) - 1))) as usize] =
+            //                    (b as char) as u8;
+            //                break;
+            //            }
+            b's' => {
+                term_clear(stdout).unwrap();
+                return Ok(Some(data));
+            }
+
+            // Throw away keys
+            _ => (),
+        }
+        stdout.flush().unwrap();
+    }
+    Ok(Some(vec![1]))
 }
 
 pub fn new_file() -> Result<Vec<u8>, ()> {

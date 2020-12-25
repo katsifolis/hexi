@@ -2,8 +2,6 @@ use hexi::{app_loop, new_file, Binary};
 use std::{fs, io};
 use termion::async_stdin;
 use termion::raw::IntoRawMode;
-use tui::backend::TermionBackend;
-use tui::Terminal;
 
 fn main() -> Result<(), io::Error> {
     // Retrieve bytes buffer from stdin file
@@ -12,24 +10,20 @@ fn main() -> Result<(), io::Error> {
         buffer: new_file().unwrap(),
     };
 
-    // Set up terminal output
-    let stdout = io::stdout().into_raw_mode()?;
-
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    // Set up terminal output / input
+    let mut stdin = io::stdin();
+    let mut stdout = io::stdout().into_raw_mode()?;
 
     // Create a separate thread to poll stdin.
     // This provides non-blocking input support.
-    let mut asi = async_stdin();
+    // In case this is needed
     // Clear the terminal
-    terminal.clear()?;
-
-    let saved = match app_loop(&mut terminal, &mut asi, &binary.buffer) {
+    let saved = match app_loop(&mut stdout, &binary.buffer) {
         Ok(d) => Ok(d),
         Err(_) => Err(()),
     };
 
-    fs::write("out", saved.unwrap().unwrap())?;
+    //fs::write("out", saved.unwrap().unwrap())?;
 
     Ok(())
 }
