@@ -14,6 +14,8 @@ use termion::input::{TermRead, TermReadEventsAndRaw};
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::{async_stdin, clear, cursor, terminal_size};
 
+pub const HEIGHT: usize = 66;
+
 #[allow(dead_code)]
 /// Contains info about the binary file
 pub struct Binary {
@@ -91,35 +93,23 @@ pub fn get_addr_repr<'a>(s: usize, o: usize, length: usize) -> HashMap<usize, St
         .collect::<HashMap<usize, String>>()
 }
 
-pub fn draw() {}
-
-/// contains the loop in which the program runs.
-pub fn app_loop(
+pub fn draw(
+    page: usize,
+    data: &mut Vec<u8>,
     stdout: &mut RawTerminal<Stdout>,
-    //asy_inp: &mut termion::AsyncReader,
-    __data: &Vec<u8>,
-) -> Result<Option<Vec<u8>>, io::Error> {
-    // Hardcoded bad..
-    const XCURSOR: u16 = 1; //48; // Top Left modifiable cell
-    const YCURSOR: u16 = 1; // Top line
-    let mut reader = io::stdin();
-
-    let mut xcursor = XCURSOR; // Start of the `value` box
-    let mut ycursor = YCURSOR; // skip top border line
-    let mut data = __data.to_vec();
-    let mut osy: u16 = 0; // offset of scrolling vertically
-    let mut page_num: u16 = 0;
-    let height = terminal_size().unwrap().1;
-
-    let mut addr = get_addr_repr(page_num.into(), (height + page_num).into(), 8);
+) -> Result<(), io::Error> {
+    let width = termion::terminal_size().unwrap().0 as usize;
+    let height = termion::terminal_size().unwrap().1 as usize;
+    let mut addr = get_addr_repr(page * height, (page + 1) * height, 8);
     //addr[(ycursor - 1) as usize].0[0].style = Style::default().fg(Color::Magenta);
     // Hex value box
-    let mut _data = get_data_repr(data.to_vec(), Repr::HEX, 0, 1000);
+    let mut _data = get_data_repr(data.to_vec(), Repr::HEX, 0, 8 * (height - 1));
     //    _data[(ycursor - 1) as usize].0[(xcursor - XCURSOR) as usize].style =
     //       Style::default().fg(Color::Green);
     //// Modifiable ascii box
-    let mut _ascii = get_data_repr(data.to_vec(), Repr::ASCII, 0, 1000);
+    let mut _ascii = get_data_repr(data.to_vec(), Repr::ASCII, 0, 16 * (height - 1));
     //// Coloring
+    // Flush stdout (i.e. make the output appear).
     write!(
         stdout,
         "{}{}",
@@ -130,13 +120,46 @@ pub fn app_loop(
         // Hide the cursor.
     )
     .unwrap();
-    // Flush stdout (i.e. make the output appear).
 
     for i in 0..addr.len() - 1 {
         write!(stdout, "{}\n\r", addr[&i]);
     }
-    write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
+
+    write!(stdout, "{}", termion::cursor::Goto(10, 1)).unwrap();
+    for j in _data {
+        write!(stdout, "{}", format!("{}", j));
+        write!(stdout, "{}", termion::cursor::Left(32)).unwrap();
+    }
+    write!(stdout, "{}", termion::cursor::Goto(43, 1)).unwrap();
+    for k in _ascii {
+        write!(stdout, "{}", format!("{}", k));
+        write!(stdout, "{}", termion::cursor::Left(16)).unwrap();
+    }
+
+    write!(stdout, "{}", termion::cursor::Goto(43, 1)).unwrap();
     stdout.flush().unwrap();
+    Ok(())
+}
+
+/// contains the loop in which the program runs.
+pub fn app_loop(
+    stdout: &mut RawTerminal<Stdout>,
+    //asy_inp: &mut termion::AsyncReader,
+    __data: &Vec<u8>,
+) -> Result<Option<Vec<u8>>, io::Error> {
+    // Hardcoded bad..
+    const XCURSOR: u16 = 43; //48; // Top Left modifiable cell
+    const YCURSOR: u16 = 1; // Top line
+    let mut reader = io::stdin();
+
+    let mut xcursor = XCURSOR; // Start of the `value` box
+    let mut ycursor = YCURSOR; // skip top border line
+    let mut data = __data.to_vec();
+    let mut osy: u16 = 0; // offset of scrolling vertically
+    let mut page_num: usize = 0;
+    let height = terminal_size().unwrap().1;
+
+    draw(page_num, &mut data, stdout);
 
     let mut bytes = reader.bytes();
     loop {
@@ -191,8 +214,7 @@ pub fn app_loop(
                 //        break;
                 //    }
                 osy = osy + height; // offset scroll x
-                page_num = page_num + height;
-                addr = get_addr_repr(page_num.into(), (height + page_num).into(), 8);
+                page_num = page_num + 1;
                 //term.clear()?;
                 //thread::sleep(time::Duration::from_millis(100));
                 //dbg!((data.len() / 0x10) - 32);
@@ -203,7 +225,7 @@ pub fn app_loop(
                     break;
                 };
                 osy = osy.checked_sub(height).unwrap_or(0u16);
-                page_num = page_num.checked_sub(height).unwrap_or(0u16);
+                page_num = page_num.checked_sub(1).unwrap_or(0usize);
                 termion::cursor::Goto(xcursor, ycursor);
             }
 
