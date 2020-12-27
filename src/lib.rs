@@ -9,12 +9,14 @@ use std::io::Write;
 use std::process;
 use std::thread;
 use std::time;
+use termion::color;
 use termion::event::Key;
 use termion::input::{TermRead, TermReadEventsAndRaw};
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::{async_stdin, clear, cursor, terminal_size};
 
 pub const HEIGHT: usize = 66;
+pub const CHAR_LEN: usize = 16;
 
 #[allow(dead_code)]
 /// Contains info about the binary file
@@ -55,7 +57,10 @@ fn scrl() -> fn(u16) -> (u16, u16) {
 pub fn get_data_repr(_data: Vec<u8>, format: Repr, s: usize, o: usize) -> Vec<String> {
     let mut values = Vec::<String>::new();
     let mut tmp = String::from("");
-    for (idx, v) in _data[s..o].iter().enumerate() {
+    let mut _s = s;
+    let mut _o = o;
+
+    for (idx, v) in _data[_s.._o].iter().enumerate() {
         match format {
             Repr::HEX => {
                 tmp.push_str(&*String::from(format!("{:02X}", v))) // passing the values;
@@ -70,7 +75,7 @@ pub fn get_data_repr(_data: Vec<u8>, format: Repr, s: usize, o: usize) -> Vec<St
             _ => (),
         }
 
-        if (idx + 1) % 16 == 0 {
+        if (idx + 1) % CHAR_LEN == 0 {
             tmp.push_str("\n");
             let res = tmp.clone();
             values.push(res);
@@ -87,10 +92,10 @@ pub fn term_clear(file: &mut RawTerminal<Stdout>) -> Result<(), (io::Error)> {
 
 /// returns a string representation of address in hex format with offset from
 /// 0 and length of the number
-pub fn get_addr_repr<'a>(s: usize, o: usize, length: usize) -> HashMap<usize, String> {
+pub fn get_addr_repr<'a>(s: usize, o: usize, length: usize) -> Vec<String> {
     (s..o)
-        .map(|x| (x, format!("{:01$X}", x * 0x10, length)))
-        .collect::<HashMap<usize, String>>()
+        .map(|x| (format!("{:01$X}", x * 0x10, length)))
+        .collect::<Vec<String>>()
 }
 
 pub fn draw(
@@ -99,16 +104,23 @@ pub fn draw(
     stdout: &mut RawTerminal<Stdout>,
 ) -> Result<(), io::Error> {
     let width = termion::terminal_size().unwrap().0 as usize;
-    let height = termion::terminal_size().unwrap().1 as usize;
+    let height = (termion::terminal_size().unwrap().1 - 1) as usize;
     let mut addr = get_addr_repr(page * height, (page + 1) * height, 8);
-    //addr[(ycursor - 1) as usize].0[0].style = Style::default().fg(Color::Magenta);
+    let mut adj = 0;
     // Hex value box
-    let mut _data = get_data_repr(data.to_vec(), Repr::HEX, 0, 8 * (height - 1));
-    //    _data[(ycursor - 1) as usize].0[(xcursor - XCURSOR) as usize].style =
-    //       Style::default().fg(Color::Green);
+    let mut _data = get_data_repr(
+        data.to_vec(),
+        Repr::HEX,
+        page * (CHAR_LEN * height),
+        ((page + 1) * CHAR_LEN) * height,
+    );
     //// Modifiable ascii box
-    let mut _ascii = get_data_repr(data.to_vec(), Repr::ASCII, 0, 16 * (height - 1));
-    //// Coloring
+    let mut _ascii = get_data_repr(
+        data.to_vec(),
+        Repr::ASCII,
+        page * (CHAR_LEN * height),
+        ((page + 1) * CHAR_LEN) * height,
+    );
     // Flush stdout (i.e. make the output appear).
     write!(
         stdout,
@@ -116,19 +128,18 @@ pub fn draw(
         // Clear the screen.
         termion::clear::All,
         // Goto (1,1).
-        termion::cursor::Goto(1, 1),
+        termion::cursor::Goto(1, 2),
         // Hide the cursor.
-    )
-    .unwrap();
+    );
 
-    for i in 0..addr.len() - 1 {
-        write!(stdout, "{}\n\r", addr[&i]);
+    for i in addr {
+        write!(stdout, "{}\n\r", i).unwrap();
     }
 
     write!(stdout, "{}", termion::cursor::Goto(10, 1)).unwrap();
     for j in _data {
         write!(stdout, "{}", format!("{}", j));
-        write!(stdout, "{}", termion::cursor::Left(32)).unwrap();
+        write!(stdout, "{}", termion::cursor::Left((CHAR_LEN * 2) as u16)).unwrap();
     }
     write!(stdout, "{}", termion::cursor::Goto(43, 1)).unwrap();
     for k in _ascii {
@@ -137,7 +148,6 @@ pub fn draw(
     }
 
     write!(stdout, "{}", termion::cursor::Goto(43, 1)).unwrap();
-    stdout.flush().unwrap();
     Ok(())
 }
 
@@ -149,7 +159,7 @@ pub fn app_loop(
 ) -> Result<Option<Vec<u8>>, io::Error> {
     // Hardcoded bad..
     const XCURSOR: u16 = 43; //48; // Top Left modifiable cell
-    const YCURSOR: u16 = 1; // Top line
+    const YCURSOR: u16 = 2; // Top line
     let mut reader = io::stdin();
 
     let mut xcursor = XCURSOR; // Start of the `value` box
@@ -160,6 +170,7 @@ pub fn app_loop(
     let height = terminal_size().unwrap().1;
 
     draw(page_num, &mut data, stdout);
+    stdout.flush().unwrap();
 
     let mut bytes = reader.bytes();
     loop {
@@ -175,11 +186,11 @@ pub fn app_loop(
 
             // Navigation Keys
             b'l' => {
-                xcursor += 1;
-                if xcursor >= XCURSOR + 15 {
+                if xcursor >= XCURSOR + (CHAR_LEN - 1) as u16 {
                     // Constraint -3 from border lines and 0 indexing
                     continue;
                 }
+                xcursor += 1;
                 write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
             }
             b'h' => {
@@ -190,43 +201,47 @@ pub fn app_loop(
                 write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
             }
             b'j' => {
-                if ycursor >= height + 1 {
+                if ycursor >= height - 1 {
                     continue;
                 }
                 ycursor += 1;
                 write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor)).unwrap();
             }
+
             b'k' => {
-                if ycursor <= 1 {
+                if ycursor <= 2 {
                     continue;
                 }
                 ycursor -= 1;
                 write!(stdout, "{}", termion::cursor::Goto(xcursor, ycursor));
             }
+            // Goto 1,1
             b'g' => {
                 xcursor = XCURSOR;
                 ycursor = 1;
                 write!(stdout, "{}", termion::cursor::Goto(1, 1)).unwrap();
             }
-            // Next page key
+            // Next page
             b'n' => {
-                //    if page_num > ((data_len / 0x10) - (box_height as usize)) as u16 {
-                //        break;
-                //    }
-                osy = osy + height; // offset scroll x
                 page_num = page_num + 1;
-                //term.clear()?;
-                //thread::sleep(time::Duration::from_millis(100));
-                //dbg!((data.len() / 0x10) - 32);
+                write!(stdout, "{}", termion::cursor::Save).unwrap();
+                draw(page_num, &mut data, stdout);
+                write!(stdout, "{}", termion::cursor::Restore).unwrap();
             }
 
+            // Previous page
             b'p' => {
-                if osy <= 0 || ycursor <= 0 {
-                    break;
-                };
-                osy = osy.checked_sub(height).unwrap_or(0u16);
                 page_num = page_num.checked_sub(1).unwrap_or(0usize);
-                termion::cursor::Goto(xcursor, ycursor);
+                write!(stdout, "{}", termion::cursor::Save).unwrap();
+                draw(page_num, &mut data, stdout);
+                write!(stdout, "{}", termion::cursor::Restore).unwrap();
+            }
+
+            // redrawing
+            b'y' => {
+                write!(stdout, "{}", termion::cursor::Save).unwrap();
+                draw(page_num, &mut data, stdout);
+                write!(stdout, "{}", termion::cursor::Restore).unwrap();
             }
 
             // Mutating Keys
@@ -243,10 +258,12 @@ pub fn app_loop(
             //                    (b as char) as u8;
             //                break;
             //            }
-            b's' => {
-                term_clear(stdout).unwrap();
-                return Ok(Some(data));
-            }
+
+            // save
+            //            b's' => {
+            //                term_clear(stdout).unwrap();
+            //                return Ok(Some(data));
+            //            }
 
             // Throw away keys
             _ => (),

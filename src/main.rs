@@ -22,6 +22,7 @@ fn main() -> Result<(), io::Error> {
         Ok(d) => Ok(d),
         Err(_) => Err(()),
     };
+    println!("{:#?}", binary.buffer.len());
 
     //fs::write("out", saved.unwrap().unwrap())?;
 
