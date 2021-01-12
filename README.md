@@ -4,7 +4,7 @@
 ---
 ## TODO
 
-- Remove col, row from get_addr_repr definition and make it do a simple one thing
+- Cursor offset should be calculated according to -o flag 
 
 ### Important
 - FIX: out of bound navigation and panics.
