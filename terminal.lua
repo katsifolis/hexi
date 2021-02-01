@@ -21,6 +21,7 @@ term = {
    setsanemode = function ()          os.execute("stty " .. "sane") end,
    -- Raw calls
    clear       = function ()          io.write("\027[2J") end,
+   cur_clear   = function ()          io.write("\027J") end,
    color_reset = function ()          io.write("\027[0m") end,
    color       = function (f, a, b)   io.write("\027[38;5;" .. f ..  "m\027[48;"  .. (a or 5) .. ";" .. (b or 255) .. "m")end,
    -- Cursor calls
@@ -38,7 +39,6 @@ term = {
    cur_show    = function ()    		  io.write("\027[?25h") end,
    cur_save    = function ()    		  io.write("\0277") end,             -- saves cursor position
    cur_restore = function ()    		  io.write("\0278") end,             -- restores it
-
 }
 
 -- returns cursor position (line, column)
@@ -66,15 +66,15 @@ end
 
 function term:init_term(off)
    local f = string.format
-   self.fln                   = "nil"
+   self.fln                   = fln .. " "
    self.offset                = off
    self.sx                    = 1
    self.size[1], self.size[2] = self:scr_dim()
    self.cur[1], self.cur[2]   = 1, 1
    self.buffer                = buf
-   self.address               = address
+   self.address               = address    
    self.hex                   = buf
-   self.ascii                 = ascii
+   self.ascii                 = ascii     
    -- Calculating number of hex, and ascii symbols
    self.setrawmode()
    self.cur_reset()
@@ -88,6 +88,5 @@ function term:free_term()
    self.clear()
    self.setsanemode()
 end
-
 
 return term

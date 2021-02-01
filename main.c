@@ -10,6 +10,13 @@ typedef struct {
 	long len;
 } Buffer;
 
+#define BUFFER  0
+#define ADDRESS 1
+#define ASCII   2
+
+int is_printable(char ch) {
+	return (ch > 0x20 && ch < 0x7f) ? 1 : 0;
+}
 
 Buffer* read_file(Buffer *buf, char *flname) 
 {
@@ -19,7 +26,7 @@ Buffer* read_file(Buffer *buf, char *flname)
 
 	fileptr = fopen(flname, "rb");        // Open the file in binary mode
 	if (fileptr == NULL) {
-		fprintf(stderr, "What the fuck");
+		fprintf(stderr, "What the fuck\n");
 		exit(1);
 	}
 
@@ -27,17 +34,47 @@ Buffer* read_file(Buffer *buf, char *flname)
 	buf->len = ftell(fileptr);             // Get the current byte offset in the file
 	rewind(fileptr);                      // Jump back to the beginning of the file
 
-	buf->data = (unsigned char*)malloc(buf->len * sizeof(unsigned char)); // Enough memory for the file
+	buf->data = malloc(buf->len * sizeof(unsigned char)); // Enough memory for the file
 	fread(buf->data, buf->len, 1, fileptr); // Read in the entire file
 	fclose(fileptr); // Close the file
 	return buf;
 
 }
 
+void create_ltable(lua_State *L, Buffer *b, int type) {
+	char ch;
+	char str[12];
+	lua_newtable(L);
+	switch(type) {
+	case BUFFER:
+		for (int i = 1; i < b->len+1; i++) {
+			lua_pushnumber(L, i);   				/* Push the table index */
+			lua_pushinteger(L, b->data[i-1]); /* Push hex representation into the table */
+			lua_rawset(L, -3);      				/* Stores the pair in the table */
+		}
+		lua_setglobal(L, "buf");
+		break;
+	case ADDRESS:
+		for (int i = 1; i < (b->len / 0x10)+2; i++) {
+			sprintf(str, "%08x:", (i-1) * 16);
+			lua_pushnumber(L, i);
+			lua_pushstring(L, str); /* Push hex representation into the table */
+			lua_rawset(L, -3);      				/* Stores the pair in the table */
+		}
+		lua_setglobal(L, "address");
+		break;
+	case ASCII:
+		for (int i = 1; i < b->len+1; i++) {
+			ch = is_printable(b->data[i-1]) ? b->data[i-1] : '.';	
+			lua_pushnumber(L, i);
+			lua_pushnumber(L, ch);
+			lua_rawset(L, -3);      				/* Stores the pair in the table */
+		}
 
-
-int is_printable(char ch) {
-	return (ch > 0x20 && ch < 0xf7) ? 1 : 0;
+		lua_setglobal(L, "ascii");
+		break;
+	}
+	return;
 }
 
 
@@ -45,13 +82,12 @@ int main(int argc, char *argv[])
 {
 	// Initializing the file
 	if (argc < 2) {
-		fprintf(stderr, "Not enough files");
+		fprintf(stderr, "Not enough files\n");
 		exit(1);
 	}
 
 	Buffer buff;
 	Buffer* buf = read_file(&buff, argv[1]);
-
 
 	// Initializing lua, opening script, needed libs, setting globals
 	int i, status, result;
@@ -65,38 +101,14 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Couldn't load file: %s\n", lua_tostring(L, -1));
 		exit(1);
 	}
+	/* Creates the tables */
+	create_ltable(L, buf, BUFFER);
+	create_ltable(L, buf, ADDRESS);
+	create_ltable(L, buf, ASCII);
 
-
-	lua_newtable(L);
-	for (int i = 1; i < buf->len; i++) {
-		lua_pushnumber(L, i);   				/* Push the table index */
-		lua_pushinteger(L, buf->data[i-1]); /* Push hex representation into the table */
-		lua_rawset(L, -3);      				/* Stores the pair in the table */
-	}
-
-	lua_setglobal(L, "buf");
-
-	lua_newtable(L);
-	char str[12];
-	for (int i = 1; i < buf->len / 0x10; i++) {
-		sprintf(str, "%08x: ", i * 16);
-		lua_pushnumber(L, i);
-		lua_pushstring(L, str); /* Push hex representation into the table */
-		lua_rawset(L, -3);      				/* Stores the pair in the table */
-	}
-	lua_setglobal(L, "address");
-
-	lua_newtable(L);
-
-	char ch;
-	for (int i = 1; i < buf->len; i++) {
-		ch = is_printable(buf->data[i-1]) ? buf->data[i-1] : '.';	
-		lua_pushnumber(L, i);
-		lua_pushnumber(L, ch);
-		lua_rawset(L, -3);      				/* Stores the pair in the table */
-	}
-
-	lua_setglobal(L, "ascii");
+	/* The filename */
+	lua_pushstring(L, argv[1]);
+	lua_setglobal(L, "fln");
 
 
 	/* Ask Lua to run our little script */
@@ -106,7 +118,8 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	lua_close(L);
+	
 
+	lua_close(L);
 	return 0;
 }

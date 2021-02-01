@@ -2,7 +2,6 @@
 local ter  = require "terminal"
 local util = require "util"
 local drw  = require "drw"
-local anon = require "anon"
 local input = require "input"
 
 -- All colors in decimal
@@ -35,6 +34,7 @@ function loop()
         drw.draw_ui(ter)
         ter.draw=false 
      end
+     drw.draw_status_bar(ter)
   end
   ter:free_term()
 end
