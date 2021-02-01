@@ -11,19 +11,29 @@ local function input(term)
    local c = util.get_char()
    local o = #term.buffer%0x10==0 and 3 or 4 
    local ch = util.last_char(c())
-   local cur_locked
    if ch == 'q' then 
       term.running = false
    -- Navigation
    elseif ch == 'j' then
-      if (term.cur[1] <= term.size[1]-3) and (not cur_locked) then  
+      if (term.sx == term.limit + 1) and term.cur[2] > #term.buffer % 0x10 and term.cur[1] + 1 == term.size[1]-2 then 
+      elseif (term.cur[1] <= term.size[1]-3) then
          term.cur_d(1)
          term.cur[1] = term.cur[1] < term.size[1] and term.cur[1]+1 or term.cur[1]
+      elseif term.sx < term.limit then
+         term.sx = term.sx + 1
+         term.draw = true
+      elseif term.sx == term.limit then
+         term.cur[1], term.cur[2] = term.size[1]-2, #term.buffer % 16
+         term.sx = term.sx + 1
+         term.draw = true
       end
    elseif ch == 'k' then 
       if term.cur[1] > 1 then
          term.cur_u(1)
          term.cur[1] = term.cur[1] > 1 and term.cur[1]-1 or term.cur[1]
+      else
+         term.sx = term.sx > 1 and term.sx - 1 or term.sx
+         term.draw = true
       end
    elseif ch == 'h' then 
       if term.cur[2] > 1 then 
@@ -31,11 +41,11 @@ local function input(term)
          term.cur[2] = term.cur[2] >-  1 and term.cur[2]-1 or term.cur[2]
       end
    elseif ch == 'l' then 
-      if (term.cur[2] < term.offset) and (not cur_locked) then
+      if term.cur[2] +1> #term.buffer % 0x10 and term.cur[1] == term.size[1]-2 and term.sx == term.limit +1 then
+      elseif (term.cur[2] < term.offset) then
          term.cur_r(1) 
          term.cur[2] = term.cur[2]+1
       end
-
    -- next line
    elseif ch == 'n' then
       if term.sx-3 > (#term.buffer/0x10)-term.size[1] then return end
@@ -82,6 +92,7 @@ local function input(term)
          term.draw     = true
       end
    end
+
 end
 
 module.input = input

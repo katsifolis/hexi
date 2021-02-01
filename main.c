@@ -18,26 +18,31 @@ int is_printable(char ch) {
 	return (ch > 0x20 && ch < 0x7f) ? 1 : 0;
 }
 
-Buffer* read_file(Buffer *buf, char *flname) 
+Buffer* read_file(char *flname) 
 {
 
-	FILE *fileptr;
-	buf->len = 1;
+	Buffer *buf = malloc(sizeof(Buffer));
+	if (buf) {
+		FILE *fileptr;
 
-	fileptr = fopen(flname, "rb");        // Open the file in binary mode
-	if (fileptr == NULL) {
-		fprintf(stderr, "What the fuck\n");
+		fileptr = fopen(flname, "rb");        // Open the file in binary mode
+		if (fileptr == NULL) {
+			fprintf(stderr, "What the fuck\n");
+			exit(1);
+		}
+
+		fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
+		buf->len = ftell(fileptr);             // Get the current byte offset in the file
+		rewind(fileptr);                      // Jump back to the beginning of the file
+
+		buf->data = malloc(buf->len * sizeof(unsigned char)); // Enough memory for the file
+		fread(buf->data, buf->len, 1, fileptr); // Read in the entire file
+		fclose(fileptr); // Close the file
+		return buf;
+	} else {
+		fprintf(stderr, "Can't allocate memory for the buffer");
 		exit(1);
 	}
-
-	fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
-	buf->len = ftell(fileptr);             // Get the current byte offset in the file
-	rewind(fileptr);                      // Jump back to the beginning of the file
-
-	buf->data = malloc(buf->len * sizeof(unsigned char)); // Enough memory for the file
-	fread(buf->data, buf->len, 1, fileptr); // Read in the entire file
-	fclose(fileptr); // Close the file
-	return buf;
 
 }
 
@@ -86,8 +91,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	Buffer buff;
-	Buffer* buf = read_file(&buff, argv[1]);
+	Buffer* buf = read_file(argv[1]);
 
 	// Initializing lua, opening script, needed libs, setting globals
 	int i, status, result;

@@ -11,6 +11,7 @@ term = {
    sx          = 0,     -- scroll offset
    draw        = false, -- draw flag
    running     = true,  -- running flag
+   limit        = 1,     -- current line
    -- constructs
    address       = {},     -- lines in the editor
    hex           = {},
@@ -66,6 +67,7 @@ end
 
 function term:init_term(off)
    local f = string.format
+   local o = #term.buffer%0x10==0 and 3 or 4 
    self.fln                   = fln .. " "
    self.offset                = off
    self.sx                    = 1
@@ -75,6 +77,7 @@ function term:init_term(off)
    self.address               = address    
    self.hex                   = buf
    self.ascii                 = ascii     
+   self.limit                 = (#term.buffer//0x10)-term.size[1]+o -- magic number 2 is first line and last line which is the status bar
    -- Calculating number of hex, and ascii symbols
    self.setrawmode()
    self.cur_reset()

@@ -7,7 +7,7 @@ local function draw_ui(term)
    local c = 0
    local hx
    local as
-   local ascii_pos = 50
+   local ascii_pos = 51
    local s_idx = term.sx * term.offset
    local e_idx = (term.size[1]-2+term.sx) * term.offset
 
@@ -53,6 +53,7 @@ end
 
 -- drawing status (filename, percentage, cur_pos)
 local function draw_status_bar(term)
+   local v, p, d, h
    term.cur_save()
    term.cur_n(999)
    term.cur_clr_ln()
@@ -60,13 +61,20 @@ local function draw_status_bar(term)
    term.out(term.fln)
    term.out("(" .. tostring(#term.buffer) .. " bytes" .. ")")
    term.cur_r(999)
-   local str = tostring((term.offset*(term.cur[1]-1)) + term.cur[2])
-   term.cur_l(#str-1)
-   term.out(str)
+   v = (term.offset*(term.cur[1]-1)) + term.cur[2] + ((term.sx-1)*term.offset) -- value
+   p = f(" - %.f%%", (v * 100) / (#term.buffer))                               -- percent
+   d = f("%d", v)                                                              -- decimal  
+   h = f("0x%08x", v)                                                          -- hex
+   term.cur_l(#d+#h+#p) -- Calculating the amount of backstepping to print until the edge of screen
+   term.out(h .. "," .. d .. p)
    term.color_reset()
    term.cur_restore()
 end
 
+local function draw_top_bar(term, interval)
+   term.cur_save()
+   term.cur_reset()
+end
 
-drw = {draw_ui = draw_ui, draw_status_bar = draw_status_bar}
+drw = {draw_ui = draw_ui, draw_status_bar = draw_status_bar, draw_top_bar = draw_top_bar}
 return drw
