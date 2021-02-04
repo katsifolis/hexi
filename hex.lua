@@ -22,21 +22,25 @@ function loop()
    local offset = 16
    -- read file
    -- init term
-  ter:init_term(offset)
-  -- read file
-  drw.draw_ui(ter)
-  drw.draw_status_bar(ter)
-  local ch
-  -- main loop
-  while ter.running do
-     input.input(ter)
-     if ter.draw then 
-        drw.draw_ui(ter)
-        ter.draw=false 
-     end
-     drw.draw_status_bar(ter)
-  end
-  ter:free_term()
+   ter:init_term(offset)
+   -- read file
+   drw.draw_ui(ter)
+   drw.draw_status_bar(ter)
+   local ch
+   -- main loop
+   while ter.running do
+      input.input(ter)
+      if ter.draw then 
+         drw.draw_ui(ter)
+         ter.draw=false 
+      end
+      if ter.save then
+         
+      end
+
+      drw.draw_status_bar(ter)
+   end
+   ter:free_term()
 end
 
 

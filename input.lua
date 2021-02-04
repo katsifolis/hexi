@@ -91,6 +91,8 @@ local function input(term)
          term.hex[o]   = term.hex[o] - 1
          term.draw     = true
       end
+   elseif ch == 'S' then
+      term.save = true
    end
 
 end

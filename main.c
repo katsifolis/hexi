@@ -122,8 +122,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	
-
 	lua_close(L);
 	return 0;
 }

@@ -58,6 +58,9 @@ local function r_file(flname)
    until not str
    return t
 end
+local function w_file(flnanme)
+   local f <close> = io.open(flname, "wb")
+   f:wrte
 -- sleep function with seconds
 local function sleep(n)  -- seconds
    local t0 = os.clock()

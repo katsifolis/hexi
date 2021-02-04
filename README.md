@@ -13,3 +13,4 @@
 - Binding "n-p" should scroll pages up and down
 - Binding "G" goto the last octet
 - Binding "g" to the start
+
