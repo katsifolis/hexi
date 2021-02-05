@@ -1,7 +1,8 @@
 /* be is a binary editor - hex editor */
+#include <assert.h>
 #include <ctype.h>
-#include <stdarg.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -18,7 +19,7 @@ static struct E* ge;
 int
 is_printable(char ch) 
 {
-	return (ch > 0x20 && ch < 0x7f) ? 1 : 0;
+	return (ch > 0x20 && ch < 0x7f) ? 0 : 1;
 }
 
 int
@@ -205,6 +206,13 @@ buf_create()
 }
 
 void
+buf_free(struct buffer* buf)
+{
+	free(buf->data);
+	free(buf);
+}
+
+void
 buf_append(struct buffer* buf, const char* what, size_t len)
 {
 	/* Prevent reallocing a lot by using some sort of geometric progression */
@@ -228,8 +236,9 @@ buf_append(struct buffer* buf, const char* what, size_t len)
 int
 buf_appendf(struct buffer* buf, const char* fmt, ...)
 {
+	assert(strlen(fmt) < 1024);
 	/* small buffer for whole fmt */
-	char buffer[20]; 
+	char buffer[1024]; 
 
 	va_list ap;
 	va_start(ap, fmt);
@@ -253,16 +262,16 @@ struct E*
 editor_create()
 {
 	struct E* e = malloc(sizeof(struct E));
-	e->flname     = malloc(0);
-	e->data       = malloc(0);
-	memset(e->s_buffer, 0, 20);
+	e->flname     = NULL;
+	e->data       = NULL;
 	e->data_len   = 0;
 	e->oct_offset = 16;
 	e->grouping   = 2;
-	e->cx         = 0;
-   e->cy         = 0;
-	e->ln = 0;
-	get_term_size(&e->size[0], &e->size[2]);
+	e->cx         = 1;
+   e->cy         = 1;
+	e->ln         = 0;
+	e->mode       = NORMAL_MODE;
+	get_term_size(&e->size[0], &e->size[1]);
 	return e;
 }
 
@@ -270,7 +279,8 @@ void
 editor_readfile(struct E* e, char *flname)
 {
 	FILE *fileptr;
-	e->flname = flname; /* copying the filename */
+	e->flname = malloc(strlen(flname)+1);
+	strncpy(e->flname, flname, strlen(flname)+1);
 
 	fileptr = fopen(flname, "rb");        /* Open the file in binary mode*/
 	if (fileptr == NULL) {
@@ -291,37 +301,249 @@ void
 editor_free(struct E* e)
 {
 	free(e->data);
+	free(e->flname);
 	free(e);
 }
 
 void
-editor_render(struct E* e)
+editor_refresh_loop(struct E* e)
 {
 	struct buffer* b = buf_create();
+	buf_append(b, "\x1b[?25l", 6); /* hides cursor */
+	buf_append(b, "\x1b[H", 3);    /* resets cursor */
+
+	if (e->mode & (NORMAL_MODE | EDIT_MODE | REPLACE_MODE)) {
+		editor_render(e, b);
+		editor_render_status(e, b);
+	}
+
+	buf_draw(b);
+	buf_free(b);
+}
+
+void
+editor_render(struct E* e, struct buffer* b)
+{
 	if (e->data_len < 0) {
-		buf_appendf(b, "There is nothing here");
+		fprintf(stderr, "There is nothing here, move along");
 		return;
 	}
 
-	unsigned int start_offset = e->ln * e->oct_offset;
+	/* terminal dimensions */
+	int screen_rows = e->size[0];
+	int row_ch_count = 0; /* used for padding */
 
-	int end_offset = e->size[0];
-	int cols = e->size[1];
-	int offset = 0;
-	buf_append(b, "\x1b[?25l", 6); /* hides cursor */
-	buf_append(b, "\x1b[H", 3);    /* resets cursor */
-	
+	/* the hex char string and its len */
+	int hexlen = 0;
+	char hex[32 + 1];
+
+	unsigned int start_offset = e->ln * e->oct_offset;
+	int bytes_per_screen = screen_rows * e->oct_offset;
+
+	long end_offset = bytes_per_screen + start_offset - e->oct_offset;
+	if (end_offset > e->data_len) {
+		end_offset = e->data_len;
+	}
+	unsigned int offset;
+	int row = 0, col = 0;
 	for (offset = start_offset; offset < end_offset; offset++) {
-		buf_appendf(b, "\x1b[1;35m%09x\x1b[0m: \r\n", offset);
+		unsigned char cur_byte = e->data[offset];
+		/* print the address */
+		if (offset % e->oct_offset == 0) {
+			buf_appendf(b, "\x1b[1;36m%09x\x1b[0m:", offset);
+			col = 0;
+			row_ch_count = 0;
+			row++;
+		}
+
+		col++;
+
+
+		if (isprint(cur_byte)) {
+			/* Every character that can be printed change its color to be more visible */
+			hexlen = snprintf(hex, sizeof(hex), "\x1b[1;34m%02x", cur_byte);
+		} else {
+			/* Just write it with normal color */
+			hexlen = snprintf(hex, sizeof(hex), "%02x", cur_byte);
+		}
+
+		/* space after the grouping variable for clear understanding */
+		if (offset % e->grouping == 0) {
+			buf_append(b, " ", 1);
+			row_ch_count++;
+		}
+
+		/* Hex Cursor rendering. */
+		if (e->cy == row) {
+			/* Render the selected byte with a different color. */
+			if (e->cx == col) {
+				buf_append(b, "\x1b[7m", 4);
+			}
+	
+		}
+
+		/* Write the hex value of the byte at the current offset, and reset attributes. */
+		buf_append(b, hex, hexlen);
+		buf_append(b, "\x1b[0m", 4);
+
+		row_ch_count +=2;
+
+		/* If we reached the end of a 'row', start writing the ASCII equivalents. */
+		if ((offset+1) % e->oct_offset == 0) {
+			buf_append(b, "  ", 2);
+			/* Calculate the 'start offset' of the ASCII part to write. Delegate */
+			/* this to the render_ascii function. */
+			int the_offset = offset + 1 - e->oct_offset;
+			editor_render_asc(e, row, the_offset, b);
+			/* New line and return */
+			buf_append(b, "\r\n", 2);
+		}
 	}
 
-	buf_append(b, "\x1b[?25h", 6); /* hides cursor */
-	buf_draw(b);
+	unsigned int leftovers = offset % e->oct_offset;
+	if (leftovers > 0) {
+		size_t pad_size = (e->oct_offset*2) + (e->oct_offset / e->grouping)-row_ch_count;
+		char *padding = malloc((pad_size) * sizeof(char));
+		memset(padding, ' ', pad_size);
+		buf_append(b, padding, pad_size);
+		buf_append(b, "  ", 2);
+		editor_render_asc(e, row, offset-leftovers, b);
+		free(padding); /* free f@@@@ up with malloc and cursor disappears*/ 
+	} 
+	buf_append(b, "\x1b[0K", 4);
+}
+void
+editor_render_asc(struct E* e, int rown, unsigned int off, struct buffer* buf)
+{
+
+	int cc = 0;
+	unsigned int offset1;
+	for (offset1 = off; offset1 < off+e->oct_offset; offset1++) {
+		if (offset1 >= e->data_len) {
+			return;
+		}
+		cc++;
+		unsigned char cur_byte = e->data[offset1];
+		if (rown == e->cy && cc == e->cx) {
+			/* Ascii cursor rendering */
+			buf_append(buf, "\x1b[7m", 4);
+		} else {
+			buf_append(buf, "\x1b[0m", 4);
+		}
+
+		if (isprint(cur_byte)) {
+			buf_appendf(buf, "\x1b[34m%c", cur_byte);
+		} else {
+			buf_appendf(buf, "\x1b[90m.");
+		}
+		/* Clear all formatting and the attributes after EOL */
+	}
+	buf_append(buf, "\x1b[0m\x1b[K", 7);
+}
+
+void
+editor_render_status(struct E* e, struct buffer* b)
+{
+	/* Reset, drop down, clear */
+	buf_appendf(b, "\x1b[H\x1b[%dH\x1b[J", e->size[0]);
+
+	/* Filename, and File size */
+	buf_appendf(b, "\x1b[7m%s\x1b[0m (%d bytes)", e->flname, e->data_len);
+
+	/* TODO 
+	long percent = (((e->cy * e->oct_offset)+e->cx) * 100) / e->data_len;
+	buf_appendf(b, "\x1b[%dC\x1b[3D%d %%", e->size[1], percent);
+	*/
 }
 
 void
 editor_keypress(struct E* e)
 {
+	int k = read_key();
+	if (k == -1) {
+		return;
+	}
+		
+
+/*	switch (k) { */
+/*	case: ESCAPE: editor_set_mode(e, NORMAL_MODE); return; */
+/*	case: CTRL_S: editor_write_file(e) ; exit(0); */
+/*	case: CTRL_Q: exit(0); */
+/*	} */
+
+	if (e->mode & NORMAL_MODE) {
+		switch (k) {
+		case 'j': editor_mv_cursor(e, DOWN, 1); break;
+		case 'k': editor_mv_cursor(e, UP, 1); break;
+		case 'h': editor_mv_cursor(e, LEFT, 1); break;
+		case 'l': editor_mv_cursor(e, RIGHT, 1); break;
+		case 'q': exit(0);
+		case CTRL_D: editor_scroll(e, e->size[0] - 2); break;
+		case CTRL_U: editor_scroll(e, -e->size[0] - 2); break;
+		}
+	}
+	
+	
+}
+
+void
+editor_mv_cursor(struct E* e, int dir, int amount)
+{
+	switch (dir) {
+	case UP:    e->cy-=amount; break;
+	case DOWN:  e->cy+=amount; break;
+	case LEFT:  e->cx-=amount; break;
+	case RIGHT: e->cx+=amount; break;
+	}
+	/* 
+	 * check if cursor should wrap up a line
+	 */
+	if (e->cx < 1) {
+		if (e->cy >= 1) {
+			e->cy--;
+			e->cx = e->oct_offset;
+		}
+	} else if (e->cx > e->oct_offset) {
+		e->cy++;
+		e->cx = 1;
+	}
+	/*
+	 * Are we at the top of the file
+	 * If so bind cx, cy to 1
+	 */
+	if (e->cy <= 0 && e->ln <=0) {
+		e->cy = 1;
+		e->cx = 1;
+	}
+
+
+}
+
+unsigned int
+editor_offset_cursor(struct E* e)
+{
+	unsigned int offset = (e->cy - 1 + e->ln) * e->oct_offset + (e->cx - 1);
+
+	if (offset <= 0)
+		return 0;
+	if (offset >= e->data_len)
+		return e->data_len - 1;
+
+	return offset;
+}
+
+void
+editor_scroll(struct E* e, int amount)
+{
+
+	e->ln += amount;
+	if (e->ln <= 0)
+		e->ln = 0;
+
+	int limit = (e->data_len / e->oct_offset) - e->size[0] - 2;
+	if (e->ln > limit)
+		e->ln = limit;
+
 }
 
 void
@@ -333,7 +555,10 @@ editor_exit()
 	term_state_restore();
 }
 
+
+
 /* Entry */
+int
 main(int argc, char *argv[])
 {
 	/* Initializing the file*/
@@ -344,8 +569,6 @@ main(int argc, char *argv[])
 
 	ge = editor_create();
 	editor_readfile(ge, argv[1]);
-	printf("%d\n", ge->size[0]);
-	sleep(1);
 
 	term_state_save();
 	enable_raw_mode();
@@ -353,9 +576,8 @@ main(int argc, char *argv[])
 	clear_screen();
 	
 	for (;;) {
-		editor_render(ge);
-		if (read_key() == 'q') {
-			exit(1);
-		}
+		editor_refresh_loop(ge);
+		editor_keypress(ge);
 	}
+
 }
