@@ -4,6 +4,7 @@ struct buffer {
 	long          cap;
 };
 
+/* bit flag mode for the editor */
 enum e_mode {
 	EDIT_MODE    = 1 << 0,
 	NORMAL_MODE  = 1 << 1,
@@ -12,16 +13,17 @@ enum e_mode {
 
 
 struct E {
-	char*        flname;       /* Filename */
-	char*        data;         /* Data from file */
-	long         data_len;      /* buffer length */
+	char*        flname;         /* Filename */
+	char*        data;           /* Data from file */
+	char         status_msg[256];     /* Buffer for custom strings */
+	long         data_len;       /* buffer length */
 	int          size[2];        /* Size of the terminal */
 	int          cx,cy;          /* cursor x, y */
 	int          oct_offset;     /* octet offset */
 	int          ln;             /* current line cursor */
 	int          grouping;       /* grouping of data */
 	int          dirty;          /* is it modified */
-	enum e_mode mode;
+	enum e_mode  mode;
 };
 
 static struct termios orig_termios;
@@ -52,8 +54,8 @@ enum k_codes {
 /* Buffer routines */
 struct buffer* buf_create();
 void           buf_free(struct buffer*);
-void           buf_append(struct buffer*, const char* what, size_t l);
-int            buf_appendf(struct buffer*, const char* fmt, ...);
+void           buf_append(struct buffer*, const char*, size_t);
+int            buf_appendf(struct buffer*, const char*, ...);
 void           buf_draw(struct buffer*);
 /* Editor routines */
 struct E*      editor_create();
@@ -62,11 +64,16 @@ void           editor_free(struct E*);
 void           editor_render(struct E*, struct buffer*);
 void           editor_render_asc(struct E*, int, unsigned int, struct buffer*);
 void           editor_render_status(struct E*, struct buffer*);
+int            editor_statusmsg(struct E*, const char*, ...);
+void           editor_setmode(struct E*, enum e_mode); /* TODO */
+void           editor_replace_b(struct E*, char);
 void           editor_exit();
+void           editor_writefile(struct E*); /* TODO */
 void           editor_readfile(struct E*, char*);
 void           editor_keypress(struct E*);
 void           editor_mv_cursor(struct E*, int, int);
-unsigned int   editor_offset_cursor(struct E*);
+unsigned int   editor_offset_at_cursor(struct E*);
+void           editor_cursor_at_offset(struct E*, int, int*, int*);
 void           editor_scroll(struct E*, int);
 /* util routines */
 int            get_term_size(int*, int*);

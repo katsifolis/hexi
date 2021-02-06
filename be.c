@@ -15,13 +15,6 @@
 /* utils */
 
 static struct E* ge;
-
-int
-is_printable(char ch) 
-{
-	return (ch > 0x20 && ch < 0x7f) ? 0 : 1;
-}
-
 int
 get_term_size(int* x, int* y)
 {
@@ -34,13 +27,13 @@ get_term_size(int* x, int* y)
 void
 term_state_save()
 {
-	(void) (write(STDOUT_FILENO, "\x1b[?1049h", 8) + 1);
+	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 
 void
 term_state_restore() 
 {
-	(void) (write(STDOUT_FILENO, "\x1b[?1049l", 8) + 1);
+	write(STDOUT_FILENO, "\x1b[?1049l", 8);
 }
 
 void
@@ -271,6 +264,9 @@ editor_create()
    e->cy         = 1;
 	e->ln         = 0;
 	e->mode       = NORMAL_MODE;
+
+	memset(e->status_msg, '\0', sizeof(e->status_msg));
+
 	get_term_size(&e->size[0], &e->size[1]);
 	return e;
 }
@@ -278,23 +274,41 @@ editor_create()
 void
 editor_readfile(struct E* e, char *flname)
 {
-	FILE *fileptr;
+	FILE *fp;
 	e->flname = malloc(strlen(flname)+1);
 	strncpy(e->flname, flname, strlen(flname)+1);
 
-	fileptr = fopen(flname, "rb");        /* Open the file in binary mode*/
-	if (fileptr == NULL) {
+	fp = fopen(flname, "rb");        /* Open the file in binary mode*/
+	if (fp == NULL) {
 		fprintf(stderr, "Error opening the file");
 		exit(1);
 	}
 
-	fseek(fileptr, 0, SEEK_END);          /* Jump to the end of the file*/
-	e->data_len = ftell(fileptr);             /* Get the current byte offset in the file*/
-	rewind(fileptr);                      /* Jump back to the beginning of the file*/
+	fseek(fp, 0, SEEK_END);          /* Jump to the end of the file*/
+	e->data_len = ftell(fp);             /* Get the current byte offset in the file*/
+	rewind(fp);                      /* Jump back to the beginning of the file*/
 	e->data = malloc(e->data_len * sizeof(unsigned char)); /* Enough memory for the file*/
-	fread(e->data, e->data_len, 1, fileptr); /* Read in the entire file*/
+	fread(e->data, e->data_len, 1, fp); /* Read in the entire file*/
 
-	fclose(fileptr); /* Close the file*/
+	fclose(fp); /* Close the file*/
+}
+void
+editor_writefile(struct E* e)
+{
+
+	FILE *fp = fopen(e->flname, "wb");
+	if (!fp) {
+		fprintf(stderr, "Error writing to file"); /* TODO We should print at the status bar */
+		return;
+	}
+	int bw = fwrite(e->data, sizeof(char), e->data_len, fp);
+	if (bw < 0) {
+		fprintf(stderr, "No bytes written to file");
+		return;
+	}
+	/* TODO We should set the status message with bytes and filename saved */
+	e->dirty = 0;
+	fclose(fp);
 }
 
 void
@@ -443,33 +457,74 @@ editor_render_asc(struct E* e, int rown, unsigned int off, struct buffer* buf)
 
 void
 editor_render_status(struct E* e, struct buffer* b)
-{
+{ 
 	/* Reset, drop down, clear */
 	buf_appendf(b, "\x1b[H\x1b[%dH\x1b[J", e->size[0]);
+	/* Write status message */
+	buf_append(b, e->status_msg, strlen(e->status_msg));
 
 	/* Filename, and File size */
-	buf_appendf(b, "\x1b[7m%s\x1b[0m (%d bytes)", e->flname, e->data_len);
+//	buf_appendf(b, "\x1b[7m%s\x1b[0m (%d bytes)", e->flname, e->data_len);
+//	float so_far = (((e->cy-1)*e->oct_offset) + e->cx + (e->ln*e->oct_offset));
+//	float percentage = (so_far * 100) / e->data_len;
+}
 
-	/* TODO 
-	long percent = (((e->cy * e->oct_offset)+e->cx) * 100) / e->data_len;
-	buf_appendf(b, "\x1b[%dC\x1b[3D%d %%", e->size[1], percent);
+int
+editor_statusmsg(struct E* e, const char *fmt, ...) {
+
+	va_list ap;
+	va_start(ap, fmt);
+	int len = vsnprintf(e->status_msg, sizeof(e->status_msg), fmt, ap);
+	va_end(ap);
+
+	return len;
+}
+
+void
+editor_setmode(struct E* e, enum e_mode mode)
+{
+	e->mode = mode;
+	switch (e->mode) {
+	case NORMAL_MODE: editor_statusmsg(e, "THIS IS NORMAL"); break;
+	/* 
+	* TODO 
+	* Indication of each mode will be drawn for us 
+	* in the status bar with a switch statement.
 	*/
+	}
+}
+
+void
+editor_replace_b(struct E* e, char c)
+{
+	unsigned int offset = editor_offset_at_cursor(e);
+	e->data[offset] = c;
+	e->dirty        = 1;
 }
 
 void
 editor_keypress(struct E* e)
 {
+	if (e->mode & REPLACE_MODE) {
+		int c = read_key();
+		if (c == ESC) {
+			e->mode = NORMAL_MODE;
+			return;
+		}
+		editor_replace_b(e, c);
+		return;
+	}
+
 	int k = read_key();
 	if (k == -1) {
 		return;
 	}
-		
 
-/*	switch (k) { */
-/*	case: ESCAPE: editor_set_mode(e, NORMAL_MODE); return; */
-/*	case: CTRL_S: editor_write_file(e) ; exit(0); */
-/*	case: CTRL_Q: exit(0); */
-/*	} */
+	switch (k) { 
+	case CTRL_Q: exit(0); 
+	case ESC: editor_setmode(e, NORMAL_MODE); return; 
+	case CTRL_S: editor_writefile(e) ; exit(0);
+	} 
 
 	if (e->mode & NORMAL_MODE) {
 		switch (k) {
@@ -477,9 +532,23 @@ editor_keypress(struct E* e)
 		case 'k': editor_mv_cursor(e, UP, 1); break;
 		case 'h': editor_mv_cursor(e, LEFT, 1); break;
 		case 'l': editor_mv_cursor(e, RIGHT, 1); break;
+		case 'G': 
+			editor_scroll(e, e->data_len);
+			editor_cursor_at_offset(e, e->data_len-1, &(e->cx), &(e->cy));
+			break;
+		case 'g': 
+			k = read_key();
+			if (k == 'g') {
+				e->ln = 0;
+				editor_cursor_at_offset(e, 0, &(e->cx), &(e->cy));
+				break;
+			}
+			break;
+		case 'r': editor_setmode(e, REPLACE_MODE); return;
+
 		case 'q': exit(0);
-		case CTRL_D: editor_scroll(e, e->size[0] - 2); break;
-		case CTRL_U: editor_scroll(e, -e->size[0] - 2); break;
+		case CTRL_D: editor_scroll(e, (e->size[0] - 2)); break;
+		case CTRL_U: editor_scroll(e, -(e->size[0] - 2)); break;
 		}
 	}
 	
@@ -507,6 +576,7 @@ editor_mv_cursor(struct E* e, int dir, int amount)
 		e->cy++;
 		e->cx = 1;
 	}
+
 	/*
 	 * Are we at the top of the file
 	 * If so bind cx, cy to 1
@@ -516,11 +586,33 @@ editor_mv_cursor(struct E* e, int dir, int amount)
 		e->cx = 1;
 	}
 
+	/*
+	 * Are we trying to scroll because we hit the bottom/top
+	 * of the page, then scroll down/up
+	 */
+	if (e->cy >= e->size[0]) {
+		e->cy--;
+		editor_scroll(e, 1);
+	} else if (e->cy < 1 && e->ln > 0) {
+		e->cy++;
+		editor_scroll(e, -1);
+	}
 
+
+	/*
+	 * Are we at the end of the file?
+	 * position cursor at the last byte
+	 */
+	unsigned int offset = editor_offset_at_cursor(e);
+	unsigned int end = e->data_len - 1;
+	if (offset >= end) {
+		editor_cursor_at_offset(e, end, &(e->cx), &(e->cy));
+	}
+	
 }
 
 unsigned int
-editor_offset_cursor(struct E* e)
+editor_offset_at_cursor(struct E* e)
 {
 	unsigned int offset = (e->cy - 1 + e->ln) * e->oct_offset + (e->cx - 1);
 
@@ -533,16 +625,22 @@ editor_offset_cursor(struct E* e)
 }
 
 void
+editor_cursor_at_offset(struct E* e, int offset, int *x, int *y)
+{
+	*x = offset % e->oct_offset + 1;
+	*y = offset / e->oct_offset - e->ln + 1;
+}
+
+void
 editor_scroll(struct E* e, int amount)
 {
-
 	e->ln += amount;
+	int limit = (e->data_len / e->oct_offset) - (e->size[0] - 2);
+	if (e->ln >= limit)
+		e->ln = limit;
+
 	if (e->ln <= 0)
 		e->ln = 0;
-
-	int limit = (e->data_len / e->oct_offset) - e->size[0] - 2;
-	if (e->ln > limit)
-		e->ln = limit;
 
 }
 
