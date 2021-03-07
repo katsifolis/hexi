@@ -1,6 +1,7 @@
 /* be is a binary editor - hex editor */
 #include <assert.h>
 #include <ctype.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -12,9 +13,9 @@
 
 #include "be.h" 
 
-/* utils */
+static struct E* ge; /* Global configuration of the editor */
 
-static struct E* ge;
+/* Functions */
 int
 get_term_size(int* x, int* y)
 {
@@ -47,6 +48,7 @@ enable_raw_mode()
 
 	tcgetattr(STDOUT_FILENO, &orig_termios);
 
+	/* Some flags basically for echoing off and no break */
 	struct termios raw = orig_termios;
 	/* input modes: no break, no CR to NL, no parity check, no strip char,*/
 	/* no start/stop output control.*/
@@ -61,8 +63,6 @@ enable_raw_mode()
 	/* control chars - set return condition: min number of bytes and timer.*/
 	/* Return each byte, or zero for timeout.*/
 	raw.c_cc[VMIN] = 0;
-	/* 100 ms timeout (unit is tens of second). Do not set this to 0 for*/
-	/* whatever reason, because this will skyrocket the cpu usage to 100%!*/
 	raw.c_cc[VTIME] = 1;
 
 	/* put terminal in raw mode after flushing*/
@@ -75,14 +75,11 @@ enable_raw_mode()
 void
 disable_raw_mode()
 {
-	/* Reset the terminal settings to the state before hx was started.*/
+	/* Reset the terminal settings to the state before the program was started.*/
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
-	/* Also, emit a ^[?25h sequence to show the cursor again. The void*/
-	/* construct (with the + 1) is to squelch GCC warnings about unused*/
-	/* return values.*/
-	(void) (write(STDOUT_FILENO, "\x1b[?25h", 6) + 1);
+	/* Show us the cursor again */
+	write(STDOUT_FILENO, "\x1b[?25h", 6);
 }
-
 
 void
 clear_screen()
@@ -95,13 +92,6 @@ clear_screen()
 	}
 }
 
-
-/* Reads keypresses from STDIN_FILENO, and processes them accordingly. Escape sequences
- * will be read properly as well (e.g. DEL will be the bytes 0x1b, 0x5b, 0x33, 0x7e).
- * The returned integer will contain the key pressed.
- *
- * read_key() returns -1 if it fails.
- */
 int
 read_key()
 {
@@ -110,9 +100,8 @@ read_key()
 	/* check == 0 to see if EOF.*/
 	while ((nread = read(STDIN_FILENO, &c, 1)) == 0);
 	if (nread == -1) {
-		/* When the read call is interrupted by a signal (such as SIGWINCH), the*/
-		/* nread will be -1. In that case, just return -1 prematurely and continue*/
-		/* the main loop.*/
+		 /* This is when a signal comes in. It will interrupt the read */
+		 /* and return -1. So return to the main loop */
 		return -1;
 	}
 
@@ -138,7 +127,6 @@ read_key()
 			/* end  = 0x1b, [ = 0x5b, 4 = 0x34, ~ = 0x7e,*/
 			/* pageup   1b, [=5b, 5=35, ~=7e,*/
 			/* pagedown 1b, [=5b, 6=36, ~=7e,*/
-
 			if (seq[0] == '[') {
 				if (seq[1] >= '0' && seq[1] <= '9') {
 					if (read(STDIN_FILENO, seq + 2, 1) == 0) {
@@ -151,9 +139,6 @@ read_key()
 							case '4': return END;
 							case '5': return PAGEUP;
 							case '6': return PAGEDOWN;
-										 /* TODO: with rxvt-unicode, ^[[7~ and ^[[8~ seem to be*/
-										 /* emitted when the home/end key are pressed. We can*/
-										 /* currently mitigate it like this.*/
 							case '7': return HOME;
 							case '8': return END;
 						}
@@ -168,8 +153,6 @@ read_key()
 					case 'F': return END;  /* ... same?*/
 				}
 			} else if (seq[0] == 'O') {
-				/* Some terminal emulators emit ^[[O sequences for HOME/END,*/
-				/* such as xfce4-terminal.*/
 				switch (seq[1]) {
 					case 'H': return HOME;
 					case 'F': return END;
@@ -216,7 +199,7 @@ buf_append(struct buffer* buf, const char* what, size_t len)
 		/* reallocate with twice the capacity*/
 		buf->data = realloc(buf->data, buf->cap);
 		if (buf->data == NULL) {
-			perror("Unable to realloc charbuf");
+			perror("Unable to realloc buffer");
 			exit(1);
 		}
 	}
@@ -229,7 +212,6 @@ buf_append(struct buffer* buf, const char* what, size_t len)
 int
 buf_appendf(struct buffer* buf, const char* fmt, ...)
 {
-	assert(strlen(fmt) < 1024);
 	/* small buffer for whole fmt */
 	char buffer[1024]; 
 
@@ -266,6 +248,9 @@ editor_create()
 	e->mode       = NORMAL_MODE;
 
 	memset(e->status_msg, '\0', sizeof(e->status_msg));
+	editor_statusmsg(e, "-- NORMAL --");
+
+	memset(e->search_str, '\0', sizeof(e->search_str));
 
 	get_term_size(&e->size[0], &e->size[1]);
 	return e;
@@ -275,26 +260,33 @@ void
 editor_readfile(struct E* e, char *flname)
 {
 	FILE *fp;
-	e->flname = malloc(strlen(flname)+1);
-	strncpy(e->flname, flname, strlen(flname)+1);
 
-	fp = fopen(flname, "rb");        /* Open the file in binary mode*/
+	e->flname = malloc(strlen(flname)+1);
+	strncpy(e->flname, flname, strlen(flname));
+
+	fp = fopen(e->flname, "rb");        /* Open the file in binary mode*/
 	if (fp == NULL) {
 		fprintf(stderr, "Error opening the file");
 		exit(1);
 	}
 
-	fseek(fp, 0, SEEK_END);          /* Jump to the end of the file*/
-	e->data_len = ftell(fp);             /* Get the current byte offset in the file*/
-	rewind(fp);                      /* Jump back to the beginning of the file*/
-	e->data = malloc(e->data_len * sizeof(unsigned char)); /* Enough memory for the file*/
-	fread(e->data, e->data_len, 1, fp); /* Read in the entire file*/
+	fseek(fp, 0, SEEK_END);				/* Jump to the end of the file*/
+	e->data_len = ftell(fp);			/* Get the current byte offset in the file*/
+	rewind(fp);								/* Jump back to the beginning of the file*/
+	e->data = malloc(e->data_len * sizeof(unsigned char)); /* Enough memory for the file */
+	fread(e->data, e->data_len, 1, fp); /* Read in the entire file */
+	editor_statusmsg(e, "%s (%d bytes)", e->flname, e->data_len);
 
-	fclose(fp); /* Close the file*/
+	fclose(fp); /* Close the file */
 }
+
 void
 editor_writefile(struct E* e)
 {
+	if (!e->dirty) {
+		editor_statusmsg(e, "You haven't editted anything");
+		return;
+	}
 
 	FILE *fp = fopen(e->flname, "wb");
 	if (!fp) {
@@ -306,6 +298,7 @@ editor_writefile(struct E* e)
 		fprintf(stderr, "No bytes written to file");
 		return;
 	}
+	editor_statusmsg(e, "Written %d bytes to %s", e->data_len, e->flname);
 	/* TODO We should set the status message with bytes and filename saved */
 	e->dirty = 0;
 	fclose(fp);
@@ -326,9 +319,10 @@ editor_refresh_loop(struct E* e)
 	buf_append(b, "\x1b[?25l", 6); /* hides cursor */
 	buf_append(b, "\x1b[H", 3);    /* resets cursor */
 
-	if (e->mode & (NORMAL_MODE | EDIT_MODE | REPLACE_MODE)) {
+	if (e->mode & (NORMAL_MODE | INSERT_MODE | REPLACE_MODE)) {
 		editor_render(e, b);
 		editor_render_status(e, b);
+		editor_render_coords(e, b);
 	}
 
 	buf_draw(b);
@@ -351,6 +345,13 @@ editor_render(struct E* e, struct buffer* b)
 	int hexlen = 0;
 	char hex[32 + 1];
 
+	 /* 
+	 * We are calculating the start-end_offset of the current buffer_draw
+	 * based on what
+	 * 1. the octet offset is
+	 * 2. which line we are in
+	 * 3. how many bytes can the screen draw
+	 */
 	unsigned int start_offset = e->ln * e->oct_offset;
 	int bytes_per_screen = screen_rows * e->oct_offset;
 
@@ -358,6 +359,7 @@ editor_render(struct E* e, struct buffer* b)
 	if (end_offset > e->data_len) {
 		end_offset = e->data_len;
 	}
+
 	unsigned int offset;
 	int row = 0, col = 0;
 	for (offset = start_offset; offset < end_offset; offset++) {
@@ -426,6 +428,7 @@ editor_render(struct E* e, struct buffer* b)
 	} 
 	buf_append(b, "\x1b[0K", 4);
 }
+
 void
 editor_render_asc(struct E* e, int rown, unsigned int off, struct buffer* buf)
 {
@@ -459,14 +462,24 @@ void
 editor_render_status(struct E* e, struct buffer* b)
 { 
 	/* Reset, drop down, clear */
-	buf_appendf(b, "\x1b[H\x1b[%dH\x1b[J", e->size[0]);
+	buf_appendf(b, "\x1b[%dH\x1b[J", e->size[0]);
 	/* Write status message */
-	buf_append(b, e->status_msg, strlen(e->status_msg));
-
 	/* Filename, and File size */
-//	buf_appendf(b, "\x1b[7m%s\x1b[0m (%d bytes)", e->flname, e->data_len);
-//	float so_far = (((e->cy-1)*e->oct_offset) + e->cx + (e->ln*e->oct_offset));
-//	float percentage = (so_far * 100) / e->data_len;
+	buf_appendf(b, "\x1b[0m %s", e->status_msg);
+}
+
+void
+editor_render_coords(struct E* e, struct buffer* b)
+{
+	char coords[100];
+	
+	unsigned int offset  = editor_offset_at_cursor(e);
+	float percent        = (float)offset / (e->data_len) * 100; 
+	unsigned char val    = e->data[offset];
+	int len = snprintf(coords, sizeof(coords), "%09x,%d (%02x) (%.f%%)", offset, offset, val, percent);
+	
+	buf_appendf(b, "\x1b[0m\x1b[%d;%dH", e->size[0], e->size[1]-len);
+	buf_append(b, coords, len); 
 }
 
 int
@@ -485,12 +498,11 @@ editor_setmode(struct E* e, enum e_mode mode)
 {
 	e->mode = mode;
 	switch (e->mode) {
-	case NORMAL_MODE: editor_statusmsg(e, "THIS IS NORMAL"); break;
-	/* 
-	* TODO 
-	* Indication of each mode will be drawn for us 
-	* in the status bar with a switch statement.
-	*/
+	case NORMAL_MODE:  editor_statusmsg(e, "- NORMAL -"); break;
+	case REPLACE_MODE: editor_statusmsg(e, "- REPLACE -"); break;
+	case INSERT_MODE:    editor_statusmsg(e, "- INSERT -"); break;
+	case CMD_MODE:     editor_statusmsg(e, ""); break;
+	case SEARCH_MODE:     editor_statusmsg(e, "~> "); break;
 	}
 }
 
@@ -499,8 +511,18 @@ editor_replace_b(struct E* e, char c)
 {
 	unsigned int offset = editor_offset_at_cursor(e);
 	e->data[offset] = c;
+	editor_mv_cursor(e, RIGHT, 1);
 	e->dirty        = 1;
 }
+
+void
+editor_incr_b(struct E* e, int amount)
+{
+	int offset = editor_offset_at_cursor(e);
+	char prev = e->data[offset];
+	e->data[offset] += amount;
+}
+
 
 void
 editor_keypress(struct E* e)
@@ -508,11 +530,22 @@ editor_keypress(struct E* e)
 	if (e->mode & REPLACE_MODE) {
 		int c = read_key();
 		if (c == ESC) {
-			e->mode = NORMAL_MODE;
+			editor_setmode(e, NORMAL_MODE);
 			return;
 		}
 		editor_replace_b(e, c);
 		return;
+	}
+	if (e->mode & INSERT_MODE) {
+		int c = read_key();
+		if (c == ESC) {
+			editor_setmode(e, NORMAL_MODE);
+			return;
+		}
+		
+	}
+
+	if (e->mode & SEARCH_MODE) {
 	}
 
 	int k = read_key();
@@ -523,7 +556,7 @@ editor_keypress(struct E* e)
 	switch (k) { 
 	case CTRL_Q: exit(0); 
 	case ESC: editor_setmode(e, NORMAL_MODE); return; 
-	case CTRL_S: editor_writefile(e) ; exit(0);
+	case CTRL_S: editor_writefile(e); return;
 	} 
 
 	if (e->mode & NORMAL_MODE) {
@@ -532,6 +565,7 @@ editor_keypress(struct E* e)
 		case 'k': editor_mv_cursor(e, UP, 1); break;
 		case 'h': editor_mv_cursor(e, LEFT, 1); break;
 		case 'l': editor_mv_cursor(e, RIGHT, 1); break;
+
 		case 'G': 
 			editor_scroll(e, e->data_len);
 			editor_cursor_at_offset(e, e->data_len-1, &(e->cx), &(e->cy));
@@ -544,15 +578,20 @@ editor_keypress(struct E* e)
 				break;
 			}
 			break;
+		/* Modes */
 		case 'r': editor_setmode(e, REPLACE_MODE); return;
+		case ':': editor_setmode(e, CMD_MODE); return;
+		case '/': editor_setmode(e, SEARCH_MODE); return;
+		case 'i': editor_setmode(e, INSERT_MODE); return;
+
+		case ']': editor_incr_b(e, 1); return;
+		case '[': editor_incr_b(e, -1); return;
 
 		case 'q': exit(0);
 		case CTRL_D: editor_scroll(e, (e->size[0] - 2)); break;
 		case CTRL_U: editor_scroll(e, -(e->size[0] - 2)); break;
 		}
 	}
-	
-	
 }
 
 void
@@ -653,6 +692,12 @@ editor_exit()
 	term_state_restore();
 }
 
+void
+term_resize() {
+	clear_screen();
+	get_term_size(&(ge->size[0]), &(ge->size[1]));
+}
+
 
 
 /* Entry */
@@ -664,6 +709,12 @@ main(int argc, char *argv[])
 		fprintf(stderr, "Not enough files\n");
 		exit(1);
 	}
+
+	/* If window changes dimension resize automatically */
+	struct sigaction act;
+	memset(&act, 0, sizeof(struct sigaction));
+	act.sa_handler = term_resize;
+	sigaction(SIGWINCH, &act, NULL);
 
 	ge = editor_create();
 	editor_readfile(ge, argv[1]);

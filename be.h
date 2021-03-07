@@ -6,23 +6,26 @@ struct buffer {
 
 /* bit flag mode for the editor */
 enum e_mode {
-	EDIT_MODE    = 1 << 0,
+	INSERT_MODE    = 1 << 0,
 	NORMAL_MODE  = 1 << 1,
 	REPLACE_MODE = 1 << 2,
+	CMD_MODE     = 1 << 3,
+	SEARCH_MODE  = 1 << 4,
 };
 
 
 struct E {
-	char*        flname;         /* Filename */
-	char*        data;           /* Data from file */
-	char         status_msg[256];     /* Buffer for custom strings */
-	long         data_len;       /* buffer length */
-	int          size[2];        /* Size of the terminal */
-	int          cx,cy;          /* cursor x, y */
-	int          oct_offset;     /* octet offset */
-	int          ln;             /* current line cursor */
-	int          grouping;       /* grouping of data */
-	int          dirty;          /* is it modified */
+	char*        flname;          /* Filename */
+	char*        data;            /* Data from file */
+	char         status_msg[256]; /* Buffer for custom strings */
+	char         search_str[20];  /* Search string buffer */
+	long         data_len;        /* buffer length */
+	int          size[2];         /* Size of the terminal */
+	int          cx,cy;           /* cursor x, y */
+	int          oct_offset;      /* octet offset */
+	int          ln;              /* current line cursor */
+	int          grouping;        /* grouping of data */
+	int          dirty;           /* is it modified */
 	enum e_mode  mode;
 };
 
@@ -64,11 +67,17 @@ void           editor_free(struct E*);
 void           editor_render(struct E*, struct buffer*);
 void           editor_render_asc(struct E*, int, unsigned int, struct buffer*);
 void           editor_render_status(struct E*, struct buffer*);
+void           editor_render_coords(struct E*, struct buffer*);
+/*
+* Indication of each mode will be drawn for us in the status bar with a switch statement.
+*/
 int            editor_statusmsg(struct E*, const char*, ...);
-void           editor_setmode(struct E*, enum e_mode); /* TODO */
+void           editor_setmode(struct E*, enum e_mode);
 void           editor_replace_b(struct E*, char);
+void           editor_incr_b(struct E*, int);
+void           editor_insert_b(struct E*, char);
 void           editor_exit();
-void           editor_writefile(struct E*); /* TODO */
+void           editor_writefile(struct E*);
 void           editor_readfile(struct E*, char*);
 void           editor_keypress(struct E*);
 void           editor_mv_cursor(struct E*, int, int);
@@ -82,3 +91,4 @@ void           disable_raw_mode();
 void           enable_raw_mode();
 void           term_state_restore();
 void           term_state_save();
+void           term_resize();

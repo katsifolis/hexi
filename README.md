@@ -1,16 +1,10 @@
-## Hex Editor for binary files
+## Binary File Editor - bfe or Best Friend Ever
 
-# Final Project for HUA 
----
-## TODO
+### Info
+This is a minimal hex editor with not so many features behind it. Probably you don't want to use it
 
-- Cursor offset should be calculated according to -o flag 
+* No deps
+* C99
 
----
-## Bindings
-
-- Binding "/" should search for individual values
-- Binding "n-p" should scroll pages up and down
-- Binding "G" goto the last octet
-- Binding "g" to the start
-
+### Bindings
+VIM
