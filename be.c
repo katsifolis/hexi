@@ -243,7 +243,7 @@ editor_create()
 	e->oct_offset = 16;
 	e->grouping   = 2;
 	e->cx         = 1;
-   e->cy         = 1;
+  e->cy         = 1;
 	e->ln         = 0;
 	e->mode       = NORMAL_MODE;
 
