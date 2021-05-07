@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "be.h" 
+#include "binsequence.h"
 
 static struct E* ge; /* Global configuration of the editor */
 
@@ -705,6 +706,8 @@ int
 main(int argc, char *argv[])
 {
 	/* Initializing the file*/
+	Instruction *instr = new_instruction();
+	printf("%d", sizeof(Instruction*));
 	if (argc < 2) {
 		fprintf(stderr, "Not enough files\n");
 		exit(1);
@@ -728,5 +731,6 @@ main(int argc, char *argv[])
 		editor_refresh_loop(ge);
 		editor_keypress(ge);
 	}
+
 
 }
