@@ -1,42 +1,105 @@
 # Implementation of the algorithms and structures of Binsequence paper
 import os, sys
 import glob
-from pprint import pp
 import re
+from pprint import pp
+
+# GLOBALS
+IDENTICAL_OPERAND_SCORE = 1
+IDENTICAL_MNEMONIC_SCORE = 2
+IDENTICAL_CONSTANT_SCORE = 3
 
 class BB:
     """ Basic Block class
     """
-    def __init__(self, instrs):
-        self.instrs = instrs
+    def __init__(self, instructions):
+        self.instructions = instructions
 
+# Assembly Instruction struct
 class Instr:
     def __init__(self):
-        self.mnemonic = ""
-        self.operand = [0] * 2 # operands max
+        self.mnemonic = "" 
+        self.operand = [''] * 3 # assembly instruction up to 3 operands max
         self.type = ""
+
+class Differ:
+    def __init__(self, lines):
+        self.bbs = parse_bbs(lines) # dictionary of basic blocks
+
+    def print_bbs_names(self):
+        print(self.bbs_names)
+
+    def print_bbs(self):
+        for i in self.bbs:
+            print(i)
+        
 
 def parse_instr(instruction):
     parsed_instr = Instr()
-    CONSTANT = 1
-    IDENTICAL_OPERAND_SCORE = 1
-    IDENTICAL_MNEMONIC_SCORE = 2
-    IDENTICAL_CONSTANT_SCORE = 3
-    instr = re.split(", |\n", instruction)
-    
 
+    # chops instruction string 
+    instr = re.split(", |\n", instruction)
     parsed_instr.mnemonic = instr[0].split(" ")[0]
+    # 1. Parsing
     # if it has no operands pop the list until we get empty list
-    try:
-        parsed_instr.operand[0] = instr[0].split(" ")[1]
-    except:
-        parsed_instr.operand.pop()
-            
-    try:
-        parsed_instr.operand[1] = instr[1] or ''
-    except:
-        parsed_instr.operand.pop()
-    
+#    print(instr)
+    for i, v in enumerate(instr):
+        if i == 0:
+            tmp = v.split(" ")
+            parsed_instr.mnemonic = tmp[0]
+            word_list = ["qword", "dword", "byte", "word"]
+            try:
+                parsed_instr.operand[i] = tmp[1]
+                for o in tmp[2:]:
+                    if o in "ptr":
+                        parsed_instr.operand[i] = "".join(str(re.findall("\[(.*?)\]", " ".join(tmp[1:])))) 
+            except:
+                pass
+
+        elif len(v.split(" ")) <= 2:
+            parsed_instr.operand[i] = str(v)
+        else:
+            for o in v.split(" "):
+                if "dword" in o or "word" in o or "byte" in o:
+                    parsed_instr.operand[i] = "".join(str(re.findall("\[(.*?)\]", v)))
+
+
+    parsed_instr.operand = [i for i in parsed_instr.operand if i != '']
+
+
+
+    """ 
+    Normalization
+
+    3 categories for the operands:
+        * registers
+        * memory references
+        * immediate values -> memory offsets | constant values
+
+    """
+
+    # hardcoded every possible register in x86
+    regs64 = ["rax", "rbx", "rcx", "rdx", "rbp", "rsp", "rsi", "rdi"]
+    regs32 = ["eax", "ebx", "ecx", "edx", "ebp", "esp", "esi", "edi"]
+    regs16 = ["ax", "bx", "cx", "dx", "bp", "sp", "si", "di"]
+    regs8  = ["ah", "al", "bh", "bl", "ch", "cl", "dh", "dl", "bpl", "spl", "sil", "dil"]
+    regsr  = ["r" + str(i) for i in range(1, 15)]
+
+    # Iterate through operands
+    for i, op in enumerate(parsed_instr.operand):
+        if op in regs64 or op in regs32 or op in regs16 or op in regs8 or op in regsr:
+            parsed_instr.operand[i] = "REG"
+            parsed_instr.type = "REGISTER"
+        elif op.startswith("["):
+            parsed_instr.type = "MEMORY"
+        elif op.startswith("0x"):
+            parsed_instr.type = "MEMORY"
+        elif op.isnumeric():
+            parsed_instr.type = "CONSTANT"
+
+    if len(parsed_instr.operand) == 0:
+            parsed_instr.type = "NONE"
+
     return parsed_instr
 
 def parse_bbs(lines):
@@ -44,6 +107,10 @@ def parse_bbs(lines):
     tmp_lst = []
     # Constructing an array containing each individual disassembled func
     for i, v in enumerate(lines):
+        # The extractor script divides every basic block with a new line
+        # So we detect it with a blank comparison
+        # Then we append to the list of bbs
+        # And empty the temporary for another round
         if v == "":
             tmp_bbs.append(tmp_lst.copy())
             tmp_lst = []
@@ -55,6 +122,8 @@ def parse_bbs(lines):
     bbs = {}
     for bb in tmp_bbs:
         for i, instr in enumerate(bb):
+            # In idx 0 lies the name of the basic block
+            # So we assign it and continue with the instructions
             if i == 0:
                 name = instr
                 bbs[name] = bbs.get(name) or []
@@ -63,73 +132,72 @@ def parse_bbs(lines):
 
     return bbs
 
-class Differ:
-    def __init__(self, lines):
-        self.bbs = parse_bbs(lines) # dictionary of basic blocks
+def comp_ins(instr, instr1):
+    """ Algorithm 1: Compare two instructions 
+    name:   compare instructions
+    input:  normalized instructions
+    output: matching score between two instructions
+    """
 
-    def print_bbs_names(self):
-        pp(self.bbs_names)
-
-    def print_bbs(self):
-        for i in self.bbs:
-            pp(i)
-        
-    def comp_ins(self,instr, instr1):
-        """ Algorithm 1: Compare two instructions 
-        name:   compare instructions
-        input:  normalized instructions
-        output: matching score between two instructions
-        """
+    score = 0
+    if instr.mnemonic == instr1.mnemonic:
+        n = len(instr1.operand)
+        score += IDENTICAL_MNEMONIC_SCORE
+        for i in range(0, n):
+            if instr.operand[i] == instr1.operand[i]:
+                if instr.type == "CONSTANT":
+                    score += IDENTICAL_CONSTANT_SCORE
+                else:
+                    score += IDENTICAL_OPERAND_SCORE
+    else:
         score = 0
-        if instr.mnemonic == instr1.nemonic:
-            n = num_of_operands(intr.operand, instr1.operand)
-            score += IDENTICAL_MNEMONIC_SCORE
-            for i in range(0, n):
-                if intsr.operands[i] == instr1.operands[i]:
-                    if instr.type == CONSTANTS:
-                        score += IDENTICAL_CONSTANT_SCORE
-                    else:
-                        score += IDENTICAL_OPERAND_SCORE
-        else:
-            score = 0
 
-        return score
+    return score
 
-    def comp_BBS(self, bb1, bb2):
-        """ Algorithm 2: Calculate the similarity score of two basic blocks
+def comp_BBS(bb1, bb2):
 
-        name: compare basic blocks
-        input: Two basic blocks BB1, BB2
-        output: The similarity score of two blocks
-        """
-        # The memoization table
-        M = [[0] * (len(bb1) + 1), [0] * (len(bb2) + 1)]
+    """ Algorithm 2: Calculate the similarity score of two basic blocks
 
-        for i in range(1,len(bb1)):
-            for j in range(1,len(bb2)):
-                M[i, j] = max(
-                        self.comp_ins(bb1[i], bb2[j]) + M[i - 1, j - 1],
-                        M[i-1, j],
-                        M[i, j-1])
+    name: compare basic blocks
+    input: Two basic blocks BB1, BB2
+    output: The similarity score of two blocks
 
-        return M
+    """
 
-# Entry point
-if len(sys.argv) < 2:
-    print("No directory given")
-    sys.exit()
+    # The memoization table
+    M = [[0] * (len(bb2) + 1)]* (len(bb1) +1)
+
+    for i in range(1,len(bb1)):
+        for j in range(1,len(bb2)):
+            M[i][j] = max(
+                    comp_ins(bb1[i], bb2[j]) + M[i - 1][j - 1],
+                    M[i-1][j],
+                    M[i][j-1])
+
+    return M[len(bb1)-1][len(bb2)-1]
 
 lines = []
 f = 0
 differs = {}
-for v in glob.glob(sys.argv[1] + "*"):
+for v in glob.glob("test/dis/*"):
     f        = open(v)
-    lines      = f.read().splitlines()
+    lines    = f.read().splitlines()
     d        = Differ(lines)
     filename = os.path.splitext(os.path.basename(v))[0]
     differs[filename] = d
     f.close()
 
-for i in differs["target"].bbs.values():
-    for j in i:
-        print(j.operand)
+test = differs["test"].bbs["main"]
+test1 = differs["test1"].bbs["main"]
+target = differs["target"].bbs["main"]
+for nname, prog in differs.items():
+    print("Similarity score from target to " + nname + ": ")
+    for name, bb in prog.bbs.items():
+        print("\t" + str(name)  + " = " + str(comp_BBS(target, bb)))
+
+#for j in differs["test"].bbs["main"]:
+#    print("\t" + str(j.mnemonic) + " " + str(j.operand) + ": " + str(j.type))
+
+#for name, values in differs["test"].bbs.items():
+#    print(str(name) + " ->")
+#    for j in values:
