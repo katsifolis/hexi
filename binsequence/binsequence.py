@@ -2,7 +2,7 @@
 import os, sys
 import glob
 import re
-from pprint import pp
+import queue
 
 # GLOBALS
 IDENTICAL_OPERAND_SCORE = 1
@@ -176,6 +176,36 @@ def comp_BBS(bb1, bb2):
 
     return M[len(bb1)-1][len(bb2)-1]
 
+def path_exploration(P,G):
+
+    """ Algorithm 3: Path exploration
+
+	input:  P: the longest path from the target function
+		    G: the CFG of the reference function
+
+	Output: d: The memoization table
+
+	s: the array that stores the largest LCS score for every node in G
+
+    """
+    d = [[0] * len(P)] * 1
+    s = [0] * len(G)
+    Q = queue.Queue()
+
+
+def LCS(u, P, d):
+    # u target node
+    # P path of nodes
+    sim = 0 
+    for v in P.nodes():
+        if SameDegree(u, v):
+            sim = comp_BBS(u,v)
+        else:
+            sim = 0
+
+# Loading the dissasembled txt for each individual binary,
+# computing the similarity score of basic blocks,
+# into ram.
 lines = []
 f = 0
 differs = {}
@@ -187,6 +217,9 @@ for v in glob.glob("test/dis/*"):
     differs[filename] = d
     f.close()
 
+# Here we test 3 different binaries and our target
+# is the `target` variable
+
 test = differs["test"].bbs["main"]
 test1 = differs["test1"].bbs["main"]
 target = differs["target"].bbs["main"]
@@ -195,9 +228,8 @@ for nname, prog in differs.items():
     for name, bb in prog.bbs.items():
         print("\t" + str(name)  + " = " + str(comp_BBS(target, bb)))
 
-#for j in differs["test"].bbs["main"]:
-#    print("\t" + str(j.mnemonic) + " " + str(j.operand) + ": " + str(j.type))
+    
+a = [1,2,3,4]
+b = [1,2]
+path_exploration(a,b)
 
-#for name, values in differs["test"].bbs.items():
-#    print(str(name) + " ->")
-#    for j in values:
