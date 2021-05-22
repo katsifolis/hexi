@@ -1,11 +1,10 @@
 import os, sys, re, glob 
 from bloomfilter import BloomFilter
 from pprint import pprint as pp
-from multiprocessing import Process
 
 NGRAM=10 * 2 # 5 n-gram size - 2 multiplier because byte in hex is represented by 2 digits
-BLOOM_SIZE = 10000
-HASH_COUNT = 3 
+BLOOM_SIZE = 10000 # Bloom filter size
+HASH_COUNT = 3 # Hash-counter
 
 # gets a sequence from bytes
 # b byte buffer
@@ -43,7 +42,7 @@ def calc_jaccard(A, B):
 # Reads the information jj
 def get_execution_seg(folder):
     shreds = {}
-    for file in glob.glob("../test/dumps/*"):
+    for file in glob.glob("test/dumps/*"):
         f = open(file, "rb")
         x_seg = os.popen("readelf -SW " + str(file) + " | grep AX", "r") 
         b = BloomFilter(100,10)
@@ -57,13 +56,11 @@ def get_execution_seg(folder):
         exec_str = ""
         for off, size in segment.items():
             f.seek(int(off, 16))
-            a = f.read(int(size, 16))
-            exec_str += a.hex()
-            a = 0
+            chunk = f.read(int(size, 16))
+            exec_str += chunk.hex()
 
 
         shred = shredder(exec_str, NGRAM)
-
         shreds[os.path.basename(f.name)] = shred
 
     return shreds

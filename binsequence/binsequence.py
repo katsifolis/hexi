@@ -3,6 +3,7 @@ import os, sys
 import glob
 import re
 import queue
+from pprint import pprint as pp
 
 # GLOBALS
 IDENTICAL_OPERAND_SCORE = 1
@@ -58,6 +59,7 @@ def parse_instr(instruction):
 
         elif len(v.split(" ")) <= 2:
             parsed_instr.operand[i] = str(v)
+            parsed_instr.operand[i-1] = "" # workaround when instruction has one operand and the operand list should have 2 entries not one
         else:
             for o in v.split(" "):
                 if "dword" in o or "word" in o or "byte" in o:
@@ -100,6 +102,7 @@ def parse_instr(instruction):
     if len(parsed_instr.operand) == 0:
             parsed_instr.type = "NONE"
 
+    pp(parsed_instr.operand)
     return parsed_instr
 
 def parse_bbs(lines):
@@ -144,11 +147,14 @@ def comp_ins(instr, instr1):
         n = len(instr1.operand)
         score += IDENTICAL_MNEMONIC_SCORE
         for i in range(0, n):
-            if instr.operand[i] == instr1.operand[i]:
-                if instr.type == "CONSTANT":
-                    score += IDENTICAL_CONSTANT_SCORE
-                else:
-                    score += IDENTICAL_OPERAND_SCORE
+            try:
+                if instr.operand[i] == instr1.operand[i]:
+                    if instr.type == "CONSTANT":
+                        score += IDENTICAL_CONSTANT_SCORE
+                    else:
+                        score += IDENTICAL_OPERAND_SCORE
+            except:
+                pass
     else:
         score = 0
 
@@ -217,19 +223,17 @@ for v in glob.glob("test/dis/*"):
     differs[filename] = d
     f.close()
 
-# Here we test 3 different binaries and our target
-# is the `target` variable
+res = 0
+target = differs["target"].bbs
+for name, i in differs.items():
+    sim = i.bbs
+    for prog, prog1 in zip(target.values(), sim.values()):
+        res += comp_BBS(prog, prog1)
 
-test = differs["test"].bbs["main"]
-test1 = differs["test1"].bbs["main"]
-target = differs["target"].bbs["main"]
-for nname, prog in differs.items():
-    print("Similarity score from target to " + nname + ": ")
-    for name, bb in prog.bbs.items():
-        print("\t" + str(name)  + " = " + str(comp_BBS(target, bb)))
-
+    print(name + " " + str(res))
+    res=0
     
-a = [1,2,3,4]
-b = [1,2]
-path_exploration(a,b)
-
+#a = [1,2,3,4]
+#b = [1,2]
+#path_exploration(a,b)
+#
