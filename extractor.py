@@ -1,52 +1,60 @@
-# This scirpt extracts the analysed disassembled function collection 
+# This scirpt extracts the analysed disassembled function collection
 # of various binary files and dumps to files
-
 import angr
-import time
-#import networkx as nx
-from icecream import ic
-#from networkx.algorithms.dag import dag_longest_path
-#from networkx.algorithms.traversal import depth_first_search as dfs
 import logging
-import glob
-import sys
+from glob import glob
 import os
+import io
+import networkx as nx
 from pprint import pprint as pp
-#import matplotlib.pyplot as plt
 
 logging.disable()
-# Collecting files from given directory
-#p = angr.Project(str("test/dumps/target"), load_options={'auto_load_libs': False})
-#cfg = p.analyses.CFGEmulated(keep_state=True, normalize=True, resolve_indirect_jumps=False, context_sensitivity_level=1)
-#logging.getLogger('angr').setLevel('DEBUG')
-#ic(cfg.remove_cycles())
-#cfg.remove_cycles() # Converting the directed graph to acyclic by pruning cycles
-#dag_longest_path(cfg.graph)
-#ic(cfg.graph)
 
-
-ic("now running")
-start = time.time()
-# Step 1
-for arg in glob.glob("test/dumps/*"): #glob.glob(sys.argv[1] + "*"):
-    file = open("test/dis/" + str(os.path.basename(arg)) + ".txt", "w")
-    p = angr.Project(str(arg), load_options={'auto_load_libs': False})
-    cfg = p.analyses.CFGEmulated(
+def extractor():
+    print("Extractor now running..")
+    # Step 1
+    for arg in glob("test/dumps/*"):  # glob.glob(sys.argv[1] + "*"):
+        f = open("test/dis/" + str(os.path.basename(arg)) + ".txt", "w")
+        p = angr.Project(str(arg), load_options={"auto_load_libs": False})
+        p.arch.capstone_x86_syntax = "at&t"
+        cfg = p.analyses.CFGEmulated(
+            context_sensitivity_level=10,
             normalize=True,
-            resolve_indirect_jumps=True,
-            enable_symbolic_back_traversal=True)
-    funcs = dict(cfg.kb.functions)
-    for f in funcs.values():
-        name = f.name
-        addr = f.addr
-        if not name.startswith("__"): # don't log internal and stub functions
-            for block in f.blocks:
-                file.write(name + "\n")
-                for ins in block.capstone.insns:
-                    if ins.op_str == "":
-                        file.write(ins.mnemonic + "\n")
-                        continue
-                    file.write(ins.mnemonic + " " + ins.op_str + "\n")
-                file.write("\n")
+            resolve_indirect_jumps=False,
+            enable_symbolic_back_traversal=False,
+        )
+        cfg.remove_cycles()
+        cfg.force_unroll_loops(10)
+        dump_assembly(f, cfg)
 
-ic(time.time() - start)
+
+def dump_assembly(file: io.FileIO, cfg: angr.analyses.cfg.cfg_emulated.CFGEmulated):
+    for node in cfg.model.nodes():
+        if node.block == None:
+            continue
+        name = node.name or str(node.addr)  # log the name or the address
+        parents = "".join(
+            [
+                (elem.name is not None) and (elem.name + " ") or ""
+                for elem in node.predecessors
+            ]
+        )
+        successors = "".join(
+            [
+                (elem.name is not None) and (elem.name + " ") or ""
+                for elem in node.successors
+            ]
+        )
+
+        in_degree = cfg.graph.in_degree(node)
+        out_degree = cfg.graph.out_degree(node)
+
+        block = node.block
+        file.write(name + " " + parents + ", " + successors + ", " + str(in_degree) + " " + str(out_degree) + "\n")
+        for ins in block.capstone.insns:
+            file.write(ins.mnemonic + " " + (ins.op_str + "\n") or "\n")
+
+        file.write("\n")
+
+
+extractor()

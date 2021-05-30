@@ -1,4 +1,4 @@
-import mmh3 # This the murmur hash
+import mmh3  # This the murmur hash
 from bitarray import bitarray
 
 # This is a implementation of a bloom filter using MurmurHASH

@@ -18,6 +18,8 @@
 # Added by cargo
 
 /target
-test/
+test/dumps
+test/dis
+test/.source
 thoughts.md
 paper/

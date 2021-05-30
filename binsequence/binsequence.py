@@ -3,72 +3,69 @@ import os, sys
 import glob
 import re
 import queue
-from pprint import pprint as pp
+from icecream import ic
+from networkx.algorithms import all_simple_paths
 
 # GLOBALS
 IDENTICAL_OPERAND_SCORE = 1
 IDENTICAL_MNEMONIC_SCORE = 2
 IDENTICAL_CONSTANT_SCORE = 3
 
+CFGs = {} # Control-Flow-Graphs of all binaries
+
 class BB:
-    """ Basic Block class
-    """
+    """Basic Block class"""
+
     def __init__(self, instructions):
         self.instructions = instructions
+
+    def __str__(self):
+        return f"{self.instructions}"
+
 
 # Assembly Instruction struct
 class Instr:
     def __init__(self):
-        self.mnemonic = "" 
-        self.operand = [''] * 3 # assembly instruction up to 3 operands max
+        self.mnemonic = ""
+        self.operand = []  # assembly instruction up to 3 operands max
         self.type = ""
 
-class Differ:
+    def __str__(self):
+        return f"{self.mnemonic} {self.operand}"
+
+
+class CFGNode:
+    def __init__(self):
+        self.name = ""
+        self.bb = []
+        self.score = 0
+        self.succs = []
+        self.preds = []
+        self.in_degree = ""
+        self.out_degree = ""
+        pass
+
+
+class CFG:
     def __init__(self, lines):
-        self.bbs = parse_bbs(lines) # dictionary of basic blocks
+        self.nodes = construct_nodes(lines)
 
-    def print_bbs_names(self):
-        print(self.bbs_names)
 
-    def print_bbs(self):
-        for i in self.bbs:
-            print(i)
-        
-
-def parse_instr(instruction):
+def parse_instr(instruction: Instr):
     parsed_instr = Instr()
 
-    # chops instruction string 
-    instr = re.split(", |\n", instruction)
-    parsed_instr.mnemonic = instr[0].split(" ")[0]
+    # chops instruction string
+    instr = re.split(" |\n", instruction)
+    parsed_instr.mnemonic = instr[0].split(" ")[
+        0
+    ]  # first part of the string is always the mnemonic
     # 1. Parsing
-    # if it has no operands pop the list until we get empty list
-#    print(instr)
-    for i, v in enumerate(instr):
-        if i == 0:
-            tmp = v.split(" ")
-            parsed_instr.mnemonic = tmp[0]
-            word_list = ["qword", "dword", "byte", "word"]
-            try:
-                parsed_instr.operand[i] = tmp[1]
-                for o in tmp[2:]:
-                    if o in "ptr":
-                        parsed_instr.operand[i] = "".join(str(re.findall("\[(.*?)\]", " ".join(tmp[1:])))) 
-            except:
-                pass
-
-        elif len(v.split(" ")) <= 2:
-            parsed_instr.operand[i] = str(v)
-            parsed_instr.operand[i-1] = "" # workaround when instruction has one operand and the operand list should have 2 entries not one
-        else:
-            for o in v.split(" "):
-                if "dword" in o or "word" in o or "byte" in o:
-                    parsed_instr.operand[i] = "".join(str(re.findall("\[(.*?)\]", v)))
-
-
-    parsed_instr.operand = [i for i in parsed_instr.operand if i != '']
-
-
+    # We slice from 1 to the end and retrieve the operands
+    for v in instr[1:]:
+        try:
+            parsed_instr.operand.append(v)
+        except:
+            parsed_instr.operand.append("")
 
     """ 
     Normalization
@@ -80,34 +77,38 @@ def parse_instr(instruction):
 
     """
 
-    # hardcoded every possible register in x86
-    regs64 = ["rax", "rbx", "rcx", "rdx", "rbp", "rsp", "rsi", "rdi"]
-    regs32 = ["eax", "ebx", "ecx", "edx", "ebp", "esp", "esi", "edi"]
-    regs16 = ["ax", "bx", "cx", "dx", "bp", "sp", "si", "di"]
-    regs8  = ["ah", "al", "bh", "bl", "ch", "cl", "dh", "dl", "bpl", "spl", "sil", "dil"]
-    regsr  = ["r" + str(i) for i in range(1, 15)]
-
     # Iterate through operands
     for i, op in enumerate(parsed_instr.operand):
-        if op in regs64 or op in regs32 or op in regs16 or op in regs8 or op in regsr:
+        if "%" in op:
             parsed_instr.operand[i] = "REG"
             parsed_instr.type = "REGISTER"
-        elif op.startswith("["):
+        elif op.startswith("0x") or op.startswith("-0x"):
+            parsed_instr.operand[i] = "MEMORY"
             parsed_instr.type = "MEMORY"
-        elif op.startswith("0x"):
+        elif op.startswith("*"):
+            parsed_instr.operand[i] = "MEMORY"
             parsed_instr.type = "MEMORY"
-        elif op.isnumeric():
+        elif op.startswith("$"):
+            parsed_instr.operand[i] = "CONSTANT"
             parsed_instr.type = "CONSTANT"
 
     if len(parsed_instr.operand) == 0:
-            parsed_instr.type = "NONE"
+        parsed_instr.type = "NONE"
 
-    pp(parsed_instr.operand)
+    for i in range(3):
+        try:
+            parsed_instr.operand[i] != ""
+        except:
+            parsed_instr.operand.append("")
+
     return parsed_instr
 
-def parse_bbs(lines):
+
+# This function constructs CFGNodes which contain the basic block, name, parents, successors
+def construct_nodes(lines: list[str]) -> list[CFGNode]:
     tmp_bbs = []
     tmp_lst = []
+    nodes = {}
     # Constructing an array containing each individual disassembled func
     for i, v in enumerate(lines):
         # The extractor script divides every basic block with a new line
@@ -121,22 +122,55 @@ def parse_bbs(lines):
 
         tmp_lst.append(v)
 
-    name = 0
-    bbs = {}
-    for bb in tmp_bbs:
+    for line, bb in enumerate(tmp_bbs):
+        node = CFGNode()
         for i, instr in enumerate(bb):
             # In idx 0 lies the name of the basic block
             # So we assign it and continue with the instructions
             if i == 0:
-                name = instr
-                bbs[name] = bbs.get(name) or []
+                # Keep a close EYE here 
+                # Format is
+                # NAME_NODE SUCCESSORS, PARENTS , IN_DEGREE OUT_DEGREE
+                name = instr.split(" ")
+                node.name = name[0]
+                comma = name.index(",")
+                n_comma = name[name.index(",")+1:]
+                n_comma1 = n_comma[n_comma.index(",")+1:]
+                node.preds = list(filter(None, name[1:comma]))
+                node.succs = list(filter(None, n_comma[:n_comma.index(",")]))
+                node.in_degree = n_comma1[0]
+                node.out_degree = n_comma1[1]
                 continue
-            bbs[name].append(parse_instr(instr))
+            node.bb.append(parse_instr(instr))
+        nodes[node.name] = node
 
-    return bbs
+    return nodes
 
-def comp_ins(instr, instr1):
-    """ Algorithm 1: Compare two instructions 
+# construct_succs_preds builds the CFGNodes of each parent and successors
+# from each individual Node
+def construct_succs_preds(c: CFG):
+    for v in c.nodes.values():
+        tmp_succs = {}
+        tmp_preds = {}
+        if len(v.succs) > 0: 
+            for s in v.succs:
+                try:
+                    tmp_succs[s] = c.nodes[s]
+                except:
+                    pass
+        elif len(v.preds) > 0:
+            for s in v.preds:
+                try:
+                    tmp_preds.append(c.nodes[s])
+                except:
+                    pass
+
+        v.succs = tmp_succs
+        v.preds = tmp_preds
+
+
+def comp_ins(instr: Instr, instr1: Instr) -> int:
+    """Algorithm 1: Compare two instructions
     name:   compare instructions
     input:  normalized instructions
     output: matching score between two instructions
@@ -154,15 +188,16 @@ def comp_ins(instr, instr1):
                     else:
                         score += IDENTICAL_OPERAND_SCORE
             except:
-                pass
+                break
     else:
         score = 0
 
     return score
 
-def comp_BBS(bb1, bb2):
 
-    """ Algorithm 2: Calculate the similarity score of two basic blocks
+def comp_BBS(bb1: BB, bb2: BB) -> int:
+
+    """Algorithm 2: Calculate the similarity score of two basic blocks
 
     name: compare basic blocks
     input: Two basic blocks BB1, BB2
@@ -171,69 +206,71 @@ def comp_BBS(bb1, bb2):
     """
 
     # The memoization table
-    M = [[0] * (len(bb2) + 1)]* (len(bb1) +1)
+    M = [[0] * (len(bb2) + 1)] * (len(bb1) + 1)
 
-    for i in range(1,len(bb1)):
-        for j in range(1,len(bb2)):
+    for i in range(1, len(bb1)):
+        for j in range(1, len(bb2)):
             M[i][j] = max(
-                    comp_ins(bb1[i], bb2[j]) + M[i - 1][j - 1],
-                    M[i-1][j],
-                    M[i][j-1])
+                comp_ins(bb1[i], bb2[j]) + M[i - 1][j - 1], M[i - 1][j], M[i][j - 1]
+            )
 
-    return M[len(bb1)-1][len(bb2)-1]
+    return M[len(bb1) - 1][len(bb2) - 1]
 
-def path_exploration(P,G):
 
-    """ Algorithm 3: Path exploration
+def path_exploration(P: CFG, G: CFG) -> list:
 
-	input:  P: the longest path from the target function
-		    G: the CFG of the reference function
+    """Algorithm 3: Path exploration
 
-	Output: d: The memoization table
+    input:  P: the longest path from the target function -- CFG
+                G: the CFG of the reference function
 
-	s: the array that stores the largest LCS score for every node in G
+    Output: d: The memoization table
+
+    s: the array that stores the largest LCS score for every node in G
 
     """
-    d = [[0] * len(P)] * 1
-    s = [0] * len(G)
+    d = [[0] * (len(P.nodes) + 1)]
+    s = [0] * len(G.nodes)
     Q = queue.Queue()
+    [Q.put(n) for n in G.nodes.values()]
+    while not Q.empty():
+        currNode = Q.get()
+        d.append([])  # Always add a new row
+        LCS(currNode, P)
 
 
-def LCS(u, P, d):
+def LCS(u: CFGNode, P: CFG):
     # u target node
     # P path of nodes
-    sim = 0 
-    for v in P.nodes():
-        if SameDegree(u, v):
-            sim = comp_BBS(u,v)
-        else:
-            sim = 0
+    sim = 0
+#    for v in P.nodes():
+#        if SameDegree(u, v):
+#            sim = comp_BBS(u, v)
+#        else:
+#            sim = 0
+
 
 # Loading the dissasembled txt for each individual binary,
 # computing the similarity score of basic blocks,
 # into ram.
-lines = []
-f = 0
-differs = {}
-for v in glob.glob("test/dis/*"):
-    f        = open(v)
-    lines    = f.read().splitlines()
-    d        = Differ(lines)
-    filename = os.path.splitext(os.path.basename(v))[0]
-    differs[filename] = d
-    f.close()
+def load_cfgs() -> None:
+    for v in glob.glob("test/dis/*"):
+        f = open(v)
+        disas = f.read().splitlines()
+        d = CFG(disas)
+        construct_succs_preds(d)
+        filename = os.path.splitext(os.path.basename(v))[0]
+        CFGs[filename] = d
+        f.close()
 
-res = 0
-target = differs["target"].bbs
-for name, i in differs.items():
-    sim = i.bbs
-    for prog, prog1 in zip(target.values(), sim.values()):
-        res += comp_BBS(prog, prog1)
 
-    print(name + " " + str(res))
-    res=0
-    
-#a = [1,2,3,4]
-#b = [1,2]
-#path_exploration(a,b)
+load_cfgs()
+
+for i in CFGs["target"].nodes.values():
+    ic(str(i.succs) + " - " + str(i.preds) + " - " + i.in_degree + i.out_degree)
+#target = CFGs["target"].nodes["min"]
+#for i in CFGs["simcc"].nodes.values():
+#    print(target.name + " -> " + i.name + " -> " + str(comp_BBS(i.bb, target.bb)))
 #
+#print(target.name + " -> " + str(comp_BBS(target.bb, target.bb)))
+#path_exploration(CFGs["target"], CFGs["simcc"])
