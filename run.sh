@@ -8,4 +8,3 @@ cd dumps/
 rm -rf obj/
 cd ../../
 
-python3 extractor.py

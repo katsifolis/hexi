@@ -1,7 +1,7 @@
 import glob, os
 from pprint import pprint as pp
 
-#Interpret : seq(Instruction) ×State →State
+# Interpret : seq(Instruction) ×State →State
 
 # State = LValue →RValue
 # LValue = Register + Mem
@@ -10,7 +10,10 @@ from pprint import pprint as pp
 def interpreter():
     pass
 
+
 def simplify(rvalue):
+    pass
+
 
 # Decomposes the disassembled program into procedures and blocks
 def decompose():
@@ -20,8 +23,8 @@ def decompose():
     for v in glob.glob("test/dis/*"):
         tmp_bbs = []
         tmp_lst = []
-        f        = open(v)
-        lines    = f.read().splitlines()
+        f = open(v)
+        lines = f.read().splitlines()
         filename = os.path.splitext(os.path.basename(v))[0]
 
         # Constructing an array containing each individual disassembled func
@@ -43,5 +46,6 @@ def decompose():
         pp(i + " -> ")
         for vv in v:
             print(str(vv))
+
 
 decompose()

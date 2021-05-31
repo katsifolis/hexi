@@ -7,6 +7,14 @@ int min(int a, int b) {
 		c = 2;
 	}
 	return a <= b ? a : b;
+	for (int i = 0;i<100;i++) {
+		printf("%d\n", i);
+	}
+	int d;
+
+	scanf("%d", &d);
+
+	return d;
 }
 
 int main() {
