@@ -15,7 +15,6 @@
 
 static struct E* ge; /* Global configuration of the editor */
 
-/* Functions */
 int
 get_term_size(int* x, int* y)
 {
@@ -225,7 +224,8 @@ buf_appendf(struct buffer* buf, const char* fmt, ...)
 }
 
 
-void buf_draw(struct buffer* b) {
+void
+buf_draw(struct buffer* b) {
 	if(write(STDOUT_FILENO, b->data, b->len) == -1) {
 		fprintf(stderr, "Can't write buffer data");
 		exit(1);
@@ -243,7 +243,7 @@ editor_create()
 	e->oct_offset = 16;
 	e->grouping   = 2;
 	e->cx         = 1;
-  e->cy         = 1;
+	e->cy         = 1;
 	e->ln         = 0;
 	e->mode       = NORMAL_MODE;
 
@@ -319,7 +319,8 @@ editor_refresh_loop(struct E* e)
 	buf_append(b, "\x1b[?25l", 6); /* hides cursor */
 	buf_append(b, "\x1b[H", 3);    /* resets cursor */
 
-	if (e->mode & (NORMAL_MODE | INSERT_MODE | REPLACE_MODE)) {
+	/* Cleans buffer and rerenders */
+	if (e->mode & (NORMAL_MODE | INSERT_MODE | REPLACE_MODE | QUIT_DIRTY_MODE)) {
 		editor_render(e, b);
 		editor_render_status(e, b);
 		editor_render_coords(e, b);
@@ -498,21 +499,30 @@ editor_setmode(struct E* e, enum e_mode mode)
 {
 	e->mode = mode;
 	switch (e->mode) {
-	case NORMAL_MODE:  editor_statusmsg(e, "- NORMAL -"); break;
-	case REPLACE_MODE: editor_statusmsg(e, "- REPLACE -"); break;
-	case INSERT_MODE:    editor_statusmsg(e, "- INSERT -"); break;
-	case CMD_MODE:     editor_statusmsg(e, ""); break;
-	case SEARCH_MODE:     editor_statusmsg(e, "~> "); break;
+	case NORMAL_MODE:		   editor_statusmsg(e, "- NORMAL -"); break;
+	case REPLACE_MODE:		   editor_statusmsg(e, "- REPLACE -"); break;
+	case INSERT_MODE:		   editor_statusmsg(e, "- INSERT -"); break;
+	case CMD_MODE:			   editor_statusmsg(e, ""); break;
+	case SEARCH_MODE:		   editor_statusmsg(e, "~> "); break;
+	case QUIT_DIRTY_MODE:	   editor_statusmsg(e, "You have unsaved changes. Do you wish to quit? y/n "); break;
+	case QUIT_MODE:	   		   editor_statusmsg(e, "You quitter!"); break;
 	}
 }
 
 void
 editor_replace_b(struct E* e, char c)
 {
+	/* Backspace */
 	unsigned int offset = editor_offset_at_cursor(e);
-	e->data[offset] = c;
-	editor_mv_cursor(e, RIGHT, 1);
-	e->dirty        = 1;
+	if (c == 0x7F) {
+		editor_mv_cursor(e, LEFT, 1);
+		e->data[offset] = 0;
+	/* Everything else */
+	} else {
+		editor_mv_cursor(e, RIGHT, 1);
+		e->data[offset] = c;
+	}
+	e->dirty = 1;
 }
 
 void
@@ -527,6 +537,20 @@ editor_incr_b(struct E* e, int amount)
 void
 editor_keypress(struct E* e)
 {
+	if (e->mode & QUIT_DIRTY_MODE) {
+		int c = read_key();
+		if (c == 'y' || c == 'Y') {
+			exit(0);
+		}
+		editor_setmode(e, NORMAL_MODE);
+
+		return;
+	}
+	if (e->mode & QUIT_MODE) {
+
+		exit(0);
+	}
+
 	if (e->mode & REPLACE_MODE) {
 		int c = read_key();
 		if (c == ESC) {
@@ -542,10 +566,19 @@ editor_keypress(struct E* e)
 			editor_setmode(e, NORMAL_MODE);
 			return;
 		}
+		/* TODO */
+		/* editor_insert_b(e, c); */
+		return;
 		
 	}
 
+	/* TODO */
 	if (e->mode & SEARCH_MODE) {
+		int c = read_key();
+		if (c == ESC) {
+			editor_setmode(e, NORMAL_MODE);
+			return;
+		}
 	}
 
 	int k = read_key();
@@ -554,22 +587,33 @@ editor_keypress(struct E* e)
 	}
 
 	switch (k) { 
-	case CTRL_Q: exit(0); 
+		case 'q':
+			if (e->dirty) {
+				editor_setmode(e, QUIT_DIRTY_MODE); return;
+			} else {
+				editor_setmode(e, QUIT_MODE); return;
+			}
 	case ESC: editor_setmode(e, NORMAL_MODE); return; 
 	case CTRL_S: editor_writefile(e); return;
 	} 
 
 	if (e->mode & NORMAL_MODE) {
 		switch (k) {
+		/* Vim-like bindings */
 		case 'j': editor_mv_cursor(e, DOWN, 1); break;
 		case 'k': editor_mv_cursor(e, UP, 1); break;
 		case 'h': editor_mv_cursor(e, LEFT, 1); break;
 		case 'l': editor_mv_cursor(e, RIGHT, 1); break;
+		case 'w': editor_mv_cursor(e, RIGHT, 2); break;
+		case 'b': editor_mv_cursor(e, LEFT, 2); break;
 
+		/* Moves at the end of the file */
 		case 'G': 
 			editor_scroll(e, e->data_len);
 			editor_cursor_at_offset(e, e->data_len-1, &(e->cx), &(e->cy));
 			break;
+		
+		/* Moves at the begging of the file */
 		case 'g': 
 			k = read_key();
 			if (k == 'g') {
@@ -580,15 +624,16 @@ editor_keypress(struct E* e)
 			break;
 		/* Modes */
 		case 'r': editor_setmode(e, REPLACE_MODE); return;
-		case ':': editor_setmode(e, CMD_MODE); return;
-		case '/': editor_setmode(e, SEARCH_MODE); return;
-		case 'i': editor_setmode(e, INSERT_MODE); return;
+		case ':': editor_setmode(e, CMD_MODE);     return;
+		case '/': editor_setmode(e, SEARCH_MODE);  return;
+		case 'i': editor_setmode(e, INSERT_MODE);  return;
 
-		case ']': editor_incr_b(e, 1); return;
-		case '[': editor_incr_b(e, -1); return;
+		/* Incrementing byte at cursor's position */
+		case ']': editor_incr_b(e, 1);  break;
+		case '[': editor_incr_b(e, -1); break;
 
-		case 'q': exit(0);
-		case CTRL_D: editor_scroll(e, (e->size[0] - 2)); break;
+		/* Scrolling */
+		case CTRL_D: editor_scroll(e, (e->size[0] - 2));  break;
 		case CTRL_U: editor_scroll(e, -(e->size[0] - 2)); break;
 		}
 	}
@@ -721,13 +766,14 @@ main(int argc, char *argv[])
 
 	term_state_save();
 	enable_raw_mode();
+	/* Callback to clean things up */
 	atexit(editor_exit); /* Cleaning up after exit */ 
+
 	clear_screen();
 	
+	/* Main loop */
 	for (;;) {
 		editor_refresh_loop(ge);
 		editor_keypress(ge);
 	}
-
-
 }

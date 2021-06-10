@@ -11,6 +11,8 @@ enum e_mode {
 	REPLACE_MODE = 1 << 2,
 	CMD_MODE     = 1 << 3,
 	SEARCH_MODE  = 1 << 4,
+	QUIT_DIRTY_MODE  = 1 << 5,
+	QUIT_MODE  = 1 << 6,
 };
 
 

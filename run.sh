@@ -8,4 +8,4 @@ cd dumps/
 rm -rf obj/
 cd ../../
 
-python3 extractor.py
+python3 binsequence/binsequence.py
