@@ -1,0 +1,20 @@
+struct E {
+	char*        flname;          /* Filename */
+	char*        data;            /* Data from file */
+	char         status_msg[256]; /* Buffer for custom strings */
+	char         search_str[20];  /* Search string buffer */
+	long         data_len;        /* buffer length */
+	int          size[2];         /* Size of the terminal */
+	int          cx,cy;           /* cursor x, y */
+	int          oct_offset;      /* octet offset */
+	int          ln;              /* current line cursor */
+	int          grouping;        /* grouping of data */
+	int          dirty;           /* is it modified */
+	enum e_mode  mode;            /* Editing mode of the editor */
+};
+
+struct buffer {
+	unsigned char *data; /* Raw data */
+	long          len;   /* Length of the buffer */
+	long          cap;   /* How big is the initialized buffer */
+};

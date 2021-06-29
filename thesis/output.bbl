@@ -1,0 +1,72 @@
+\begin{thebibliography}{10}
+
+\bibitem{rehex}
+Daniel Collins.
+\newblock https://github.com/solemnwarning/rehex.
+
+\bibitem{hexedit}
+Jens Duttke.
+\newblock https://www.hexed.it/.
+
+\bibitem{wxhex}
+erdem ua.
+\newblock https://sourceforge.net/projects/wxhexeditor/.
+
+\bibitem{huang_binsequence:_2017}
+He~Huang, Amr~M. Youssef, and Mourad Debbabi.
+\newblock {BinSequence}: {Fast}, {Accurate} and {Scalable} {Binary} {Code}
+  {Reuse} {Detection}.
+\newblock In {\em Proceedings of the 2017 {ACM} on {Asia} {Conference} on
+  {Computer} and {Communications} {Security}}, pages 155--166, Abu Dhabi United
+  Arab Emirates, April 2017. ACM.
+
+\bibitem{hxd}
+Maël Hörz.
+\newblock https://www.mh-nexus.de/en/hxd/.
+
+\bibitem{reverse}
+Ati Jain, Swapnil Soner, and Anand Gadwal.
+\newblock Reverse engineering: Journey from code to design.
+\newblock In {\em 2011 3rd International Conference on Electronics Computer
+  Technology}, volume~5, pages 102--106, 2011.
+
+\bibitem{bitshred}
+Jiyong Jang, David Brumley, and Shobha Venkataraman.
+\newblock {BitShred}.
+\newblock In {\em Proceedings of the 18th {ACM} conference on Computer and
+  communications security - {CCS} {\textquotesingle}11}. {ACM} Press, 2011.
+
+\bibitem{vim}
+Alexander Kowarik and Matthias Templ.
+\newblock Imputation with the {R} package {VIM}.
+\newblock {\em Journal of Statistical Software}, 74(7):1--16, 2016.
+
+\bibitem{binjuice}
+Arun Lakhotia, Mila~Dalla Preda, and Roberto Giacobazzi.
+\newblock Fast location of similar code fragments using semantic
+  {\textquotesingle}juice{\textquotesingle}.
+\newblock In {\em Proceedings of the 2nd {ACM} {SIGPLAN} Program Protection and
+  Reverse Engineering Workshop on - {PPREW} {\textquotesingle}13}. {ACM} Press,
+  2013.
+
+\bibitem{ida}
+IDA Pro.
+\newblock https://www.hex-rays.com/ida-pro/.
+
+\bibitem{objdump}
+The~GNU Project.
+\newblock https://www.gnu.org/software/binutils/.
+
+\bibitem{kilo}
+Salvatore Sanfilippo.
+\newblock https://github.com/antirez/kilo.
+
+\bibitem{angr}
+Yan Shoshitaishvili, Ruoyu Wang, Christopher Salls, Nick Stephens, Mario
+  Polino, Audrey Dutcher, John Grosen, Siji Feng, Christophe Hauser,
+  Christopher Kruegel, and Giovanni Vigna.
+\newblock {SoK: (State of) The Art of War: Offensive Techniques in Binary
+  Analysis}.
+\newblock In {\em IEEE Symposium on Security and Privacy}, 2016.
+
+\end{thebibliography}

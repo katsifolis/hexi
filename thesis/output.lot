@@ -1,0 +1,7 @@
+\selectlanguage *{english}
+\bgroup 
+\selectlanguage *{greek}
+\contentsline {table}{\numberline {1}{\ignorespaces Λειτουργίες hex editor}}{19}{table.1}%
+\contentsline {table}{\numberline {2}{\ignorespaces Τεχνικές υλοποιήσεων \emph {Binary Code Reuse Detection}}}{26}{table.2}%
+\egroup 
+\selectlanguage *{english}

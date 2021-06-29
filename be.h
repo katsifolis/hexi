@@ -94,3 +94,4 @@ void           enable_raw_mode();
 void           term_state_restore();
 void           term_state_save();
 void           term_resize();
+char*		   term_file_sig_detect(struct E*, char*);

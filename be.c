@@ -14,6 +14,7 @@
 #include "be.h" 
 
 static struct E* ge; /* Global configuration of the editor */
+static FILE* SIGNATURES;
 
 int
 get_term_size(int* x, int* y)
@@ -744,6 +745,13 @@ term_resize() {
 }
 
 
+/* File signature detection */
+char *
+term_file_sig_detect(struct E* e, char* header) {
+
+
+}
+
 
 /* Entry */
 int
@@ -754,6 +762,7 @@ main(int argc, char *argv[])
 		fprintf(stderr, "Not enough files\n");
 		exit(1);
 	}
+
 
 	/* If window changes dimension resize automatically */
 	struct sigaction act;
@@ -769,7 +778,12 @@ main(int argc, char *argv[])
 	/* Callback to clean things up */
 	atexit(editor_exit); /* Cleaning up after exit */ 
 
+
 	clear_screen();
+
+	/* Open signatures file reads header, prints to status screen */
+	SIGNATURES = fopen("signatures.txt", "r");
+	term_file_sig_detect(ge, SIGNATURES);
 	
 	/* Main loop */
 	for (;;) {
