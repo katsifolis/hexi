@@ -1,9 +1,10 @@
 \selectlanguage *{english}
 \bgroup 
 \selectlanguage *{greek}
-\contentsline {figure}{\numberline {1}{\ignorespaces HxD - Freeware Hex Editor and Disk Editor}}{15}{figure.1}%
-\contentsline {figure}{\numberline {2}{\ignorespaces HexEd.it: A full featured HTML5/javascript-based hex editor running directly from your browser}}{16}{figure.2}%
-\contentsline {figure}{\numberline {3}{\ignorespaces wxHedEditor}}{17}{figure.3}%
-\contentsline {figure}{\numberline {4}{\ignorespaces rehex: Reverse Engineer's hex editor}}{18}{figure.4}%
+\contentsline {figure}{\numberline {1}{\ignorespaces HxD - Freeware Hex Editor and Disk Editor}}{16}{figure.1}%
+\contentsline {figure}{\numberline {2}{\ignorespaces HexEd.it: A full featured HTML5/javascript-based hex editor running directly from your browser}}{17}{figure.2}%
+\contentsline {figure}{\numberline {3}{\ignorespaces wxHedEditor}}{18}{figure.3}%
+\contentsline {figure}{\numberline {4}{\ignorespaces rehex: Reverse Engineer's hex editor}}{19}{figure.4}%
+\contentsline {figure}{\numberline {5}{\ignorespaces BHE: Binary Hex Editor}}{30}{figure.5}%
 \egroup 
 \selectlanguage *{english}

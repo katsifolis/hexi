@@ -1,4 +1,4 @@
-This is LuaHBTeX, Version 1.13.0 (TeX Live 2021/Arch Linux)  (format=lualatex 2021.6.21)  29 JUN 2021 19:20
+This is LuaHBTeX, Version 1.13.0 (TeX Live 2021/Arch Linux)  (format=lualatex 2021.6.21)  13 JUL 2021 13:29
  restricted system commands enabled.
 **output.tex
 (./output.tex
@@ -823,23 +823,23 @@ braces):
 >  {greek/localnumeral}  =>  {greeknumerals}
 >  {greek/Localnumeral}  =>  {Greeknumerals}.
 Module polyglossia Info: Language data for greek
-(polyglossia)            hyphenation	
-(polyglossia)            righthyphenmin	1
+(polyglossia)            loader	loadhyph-el-polyton.tex
 (polyglossia)            lefthyphenmin	1
 (polyglossia)            patterns	hyph-el-polyton.pat.txt
 (polyglossia)            synonyms	polygreek
-(polyglossia)            loader	loadhyph-el-polyton.tex on input line 14
+(polyglossia)            hyphenation	
+(polyglossia)            righthyphenmin	1 on input line 14
 Module polyglossia Info: Language greek was not yet loaded; created with id 2 on
  input line 14
 
 (/usr/share/texmf-dist/tex/latex/polyglossia/xgreek-fixes.def)
 Module polyglossia Info: Language data for monogreek
-(polyglossia)            hyphenation	
-(polyglossia)            righthyphenmin	1
+(polyglossia)            loader	loadhyph-el-monoton.tex
 (polyglossia)            lefthyphenmin	1
 (polyglossia)            patterns	hyph-el-monoton.pat.txt
 (polyglossia)            synonyms	
-(polyglossia)            loader	loadhyph-el-monoton.tex on input line 97
+(polyglossia)            hyphenation	
+(polyglossia)            righthyphenmin	1 on input line 97
 Module polyglossia Info: Language monogreek was not yet loaded; created with id 
 3 on input line 97
 Package polyglossia Info: Option: Monotonic Greek.
@@ -1000,9 +1000,9 @@ LaTeX Info: Redefining \sffamily on input line 27.
 LaTeX Info: Redefining \ttfamily on input line 27.
 
 (./stateofart.aux)
-LaTeX Info: Redefining \rmfamily on input line 76.
-LaTeX Info: Redefining \sffamily on input line 76.
-LaTeX Info: Redefining \ttfamily on input line 76.
+LaTeX Info: Redefining \rmfamily on input line 83.
+LaTeX Info: Redefining \sffamily on input line 83.
+LaTeX Info: Redefining \ttfamily on input line 83.
 )
 \openout1 = output.aux
 
@@ -1190,10 +1190,15 @@ File: hua.png Graphic file (type png)
 <use hua.png>
 Package luatex.def Info: hua.png  used on input line 4.
 (luatex.def)             Requested size: 48.93268pt x 45.16862pt.
+<static/cover.png, id=88, 690.58pt x 421.575pt>
+File: static/cover.png Graphic file (type png)
+<use static/cover.png>
+Package luatex.def Info: static/cover.png  used on input line 17.
+(luatex.def)             Requested size: 345.28915pt x 210.78697pt.
  [1
 
-{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}<./hua.png>]
-[2] [3]) [4] (./output.toc
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}<./hua.png><./static/cover.pn
+g>] [2] [3]) [4] (./output.toc
 LaTeX Info: Redefining \rmfamily on input line 1.
 LaTeX Info: Redefining \sffamily on input line 1.
 LaTeX Info: Redefining \ttfamily on input line 1.
@@ -1201,7 +1206,8 @@ LaTeX Info: Redefining \rmfamily on input line 3.
 LaTeX Info: Redefining \sffamily on input line 3.
 LaTeX Info: Redefining \ttfamily on input line 3.
 LaTeX Font Info:    Trying to load font information for U+msa on input line 5.
- (/usr/share/texmf-dist/tex/latex/amsfonts/umsa.fd
+
+(/usr/share/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
 LaTeX Font Info:    Trying to load font information for U+msb on input line 5.
@@ -1224,9 +1230,9 @@ LaTeX Info: Redefining \ttfamily on input line 1.
 LaTeX Info: Redefining \rmfamily on input line 3.
 LaTeX Info: Redefining \sffamily on input line 3.
 LaTeX Info: Redefining \ttfamily on input line 3.
-LaTeX Info: Redefining \rmfamily on input line 9.
-LaTeX Info: Redefining \sffamily on input line 9.
-LaTeX Info: Redefining \ttfamily on input line 9.
+LaTeX Info: Redefining \rmfamily on input line 10.
+LaTeX Info: Redefining \sffamily on input line 10.
+LaTeX Info: Redefining \ttfamily on input line 10.
 )
 \tf@lof=\write6
 
@@ -1245,7 +1251,12 @@ LaTeX Info: Redefining \ttfamily on input line 7.
 \tf@lot=\write7
 
 \openout7 = output.lot
- [9] [10] (./intro.tex
+ [9] [10]
+Overfull \hbox (40.42993pt too wide) in paragraph at lines 137--150
+ [][] 
+ []
+
+[11] (./intro.tex
 ! Misplaced alignment tab character &.
 l.17 ... δίσκους, δισκέτες, CD-ROM &
                                                    DVD, ZIP, Smart Media, Co...
@@ -1263,46 +1274,55 @@ Overfull \hbox (18.95724pt too wide) in paragraph at lines 21--23
 ε-νά-ρια reverse engineering.
  []
 
-[11] [12]) [13] (./hex.tex [14]
-Overfull \hbox (0.54028pt too wide) in paragraph at lines 18--21
+[12] [13]) [14] (./hex.tex [15]
+Overfull \hbox (0.54028pt too wide) in paragraph at lines 21--24
 []\TU/TimesNewRoman(1)/m/n/12 Ωστόσο, ο συ-γκε-κρι-μέ-νος 
 διορ-θω-τής υπο-στη-ρί-ζει σαν λει-τουρ-γικό 
 σύ-στημα μόνο \TU/TimesNewRoman(1)/m/it/12 Windows\TU/TimesNewRoman(
 1)/m/n/12 .
  []
 
-<static/hxd.png, id=190, 768.8725pt x 499.8675pt>
+<static/hxd.png, id=198, 768.8725pt x 499.8675pt>
 File: static/hxd.png Graphic file (type png)
 <use static/hxd.png>
-Package luatex.def Info: static/hxd.png  used on input line 26.
+Package luatex.def Info: static/hxd.png  used on input line 29.
 (luatex.def)             Requested size: 384.4353pt x 249.93314pt.
-[15<./static/hxd.png>]
-<static/hexedit.png, id=199, 685.56125pt x 385.44pt>
+[16<./static/hxd.png>]
+<static/hexedit.png, id=208, 685.56125pt x 385.44pt>
 File: static/hexedit.png Graphic file (type png)
 <use static/hexedit.png>
-Package luatex.def Info: static/hexedit.png  used on input line 41.
+Package luatex.def Info: static/hexedit.png  used on input line 45.
 (luatex.def)             Requested size: 342.77979pt x 192.71953pt.
- [16<./static/hexedit.png>]
-<static/wxhex.png, id=207, 985.6825pt x 600.2425pt>
+ [17<./static/hexedit.png>]
+! Undefined control sequence.
+l.57 ...ς φαίνεται στο σχήμα \tetbf
+                                                  {\ref{wx}} δεξιά με...
+The control sequence at the end of the top line
+of your error message was never \def'ed. If you have
+misspelled it (e.g., `\hobx'), type `I' and the correct
+spelling (e.g., `I\hbox'). Otherwise just continue,
+and I'll forget about whatever was undefined.
+
+<static/wxhex.png, id=217, 985.6825pt x 600.2425pt>
 File: static/wxhex.png Graphic file (type png)
 <use static/wxhex.png>
-Package luatex.def Info: static/wxhex.png  used on input line 60.
+Package luatex.def Info: static/wxhex.png  used on input line 65.
 (luatex.def)             Requested size: 492.84004pt x 300.12051pt.
 
-Overfull \hbox (23.36955pt too wide) in paragraph at lines 60--61
+Overfull \hbox (23.36955pt too wide) in paragraph at lines 65--66
  [][] 
  []
 
-[17<./static/wxhex.png>]
-<static/rehex.png, id=215, 847.165pt x 574.145pt>
+[18<./static/wxhex.png>]
+<static/rehex.png, id=226, 847.165pt x 574.145pt>
 File: static/rehex.png Graphic file (type png)
 <use static/rehex.png>
-Package luatex.def Info: static/rehex.png  used on input line 76.
+Package luatex.def Info: static/rehex.png  used on input line 82.
 (luatex.def)             Requested size: 423.58145pt x 287.0718pt.
- [18<./static/rehex.png>] [19]
+ [19<./static/rehex.png>] [20]
 \openout2 = stateofart.aux
  (./stateofart.tex
-[20
+[21
 
 ]
 ! Extra }, or forgotten \endgroup.
@@ -1314,7 +1334,7 @@ you forgot something else, as in `\hbox{$x}'. In such cases
 the way to recover is to insert both the forgotten and the
 deleted material, e.g., by typing `I$}'.
 
-[21] [22]
+[22] [23]
 ! Missing $ inserted.
 <inserted text> 
 $
@@ -1331,19 +1351,25 @@ l.89
 I've inserted a begin-math/end-math symbol since I think
 you left one out. Proceed, with fingers crossed.
 
-[23] [24]
+[24] [25]
 Overfull \hbox (16.68143pt too wide) in paragraph at lines 156--157
 []\TU/TimesNewRoman(1)/m/n/12 Βελ-τιώ-νε-ται η δια-δι-κα-σ
 ία αυτή με την χρήση του αλ-γο-ρίθ-μου \TU/TimesNe
 wRoman(1)/m/it/12 (neighbourhood exploration)
  []
 
-[25]) [26]) (./implementation.tex [27
+[26]) [27]) (./implementation.tex [28
 
 
-] [28] [29]
+] [29]
+<static/be.png, id=330, 565.11125pt x 614.295pt>
+File: static/be.png Graphic file (type png)
+<use static/be.png>
+Package luatex.def Info: static/be.png  used on input line 73.
+(luatex.def)             Requested size: 282.55493pt x 307.14674pt.
+ [30<./static/be.png>] [31]
 ! Extra }, or forgotten \endgroup.
-l.110 ...e \frac{|A\space\cap B|}{|A\space\cup B|}$}
+l.135 ...e \frac{|A\space\cap B|}{|A\space\cup B|}$}
                                                   \space\space\Rightarrow\sp...
 I've deleted a group-closing symbol because it seems to be
 spurious, as in `$x}$'. But perhaps the } is legitimate and
@@ -1352,7 +1378,7 @@ the way to recover is to insert both the forgotten and the
 deleted material, e.g., by typing `I$}'.
 
 ! Extra }, or forgotten \endgroup.
-l.111 ...e \frac{F_{11}}{F_{01} + F_{10} + F_{11}}$}
+l.136 ...e \frac{F_{11}}{F_{01} + F_{10} + F_{11}}$}
                                                   
 I've deleted a group-closing symbol because it seems to be
 spurious, as in `$x}$'. But perhaps the } is legitimate and
@@ -1360,10 +1386,10 @@ you forgot something else, as in `\hbox{$x}'. In such cases
 the way to recover is to insert both the forgotten and the
 deleted material, e.g., by typing `I$}'.
 
-) [30] (./conclusions.tex) [31] (./output.bbl)
-LaTeX Info: Redefining \rmfamily on input line 147.
-LaTeX Info: Redefining \sffamily on input line 147.
-LaTeX Info: Redefining \ttfamily on input line 147.
+) [32] (./conclusions.tex [33]) [34] (./output.bbl)
+LaTeX Info: Redefining \rmfamily on input line 170.
+LaTeX Info: Redefining \sffamily on input line 170.
+LaTeX Info: Redefining \ttfamily on input line 170.
 The property list \polyglossia@langsetup contains the pairs (without outer
 braces):
 >  {latex/script}  =>  {latin}
@@ -1414,7 +1440,7 @@ braces):
 >  {greek/babelname}  =>  {greek}
 >  {greek/localnumeral}  =>  {greeknumerals}
 >  {greek/Localnumeral}  =>  {Greeknumerals}.
- [32] (./output.aux
+ [35] (./output.aux
 LaTeX Info: Redefining \rmfamily on input line 19.
 LaTeX Info: Redefining \sffamily on input line 19.
 LaTeX Info: Redefining \ttfamily on input line 19.
@@ -1423,24 +1449,24 @@ LaTeX Info: Redefining \sffamily on input line 27.
 LaTeX Info: Redefining \ttfamily on input line 27.
 
 (./stateofart.aux)
-LaTeX Info: Redefining \rmfamily on input line 76.
-LaTeX Info: Redefining \sffamily on input line 76.
-LaTeX Info: Redefining \ttfamily on input line 76.
+LaTeX Info: Redefining \rmfamily on input line 83.
+LaTeX Info: Redefining \sffamily on input line 83.
+LaTeX Info: Redefining \ttfamily on input line 83.
 )
 Package rerunfilecheck Info: File `output.out' has not changed.
-(rerunfilecheck)             Checksum: B92C26336D10333EEC3DDF6D40C1DB94;3696.
+(rerunfilecheck)             Checksum: 3AD11CEE6E5321B16E3D93B0C0F9EF42;3553.
 )
 
 Here is how much of LuaTeX's memory you used:
- 27062 strings out of 478531
+ 27093 strings out of 478531
  100000,953878 words of node,token memory allocated
  609 words of node memory still in use:
    7 hlist, 2 vlist, 2 rule, 2 glue, 4 kern, 1 glyph, 9 attribute, 71 glue_spec,
  9 attribute_list, 2 write, 1 pdf_action nodes
-   avail lists: 2:1540,3:223,4:156,5:1082,6:73,7:6742,8:50,9:2840,10:13,11:758
- 45678 multiletter control sequences out of 65536+600000
+   avail lists: 2:1544,3:223,4:156,5:1086,6:73,7:6742,8:50,9:2842,10:13,11:758
+ 45693 multiletter control sequences out of 65536+600000
  109 fonts using 27258711 bytes
- 87i,11n,85p,631b,994s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 87i,11n,85p,627b,976s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/share/fonts/TTF/Inconsolata-Regular.ttf></usr/share/fonts/TTF/timesbd.ttf>
 </usr/share/fonts/TTF/timesi.ttf></usr/share/fonts/TTF/times.ttf></usr/share/tex
 mf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texmf-dist/fonts/t
@@ -1451,10 +1477,10 @@ texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texmf-dist/fonts/
 type1/public/amsfonts/cm/cmr8.pfb></usr/share/texmf-dist/fonts/type1/public/amsf
 onts/cm/cmsy10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/symbols/ms
 bm10.pfb>
-Output written on output.pdf (32 pages, 622270 bytes).
+Output written on output.pdf (35 pages, 668870 bytes).
 
-PDF statistics: 430 PDF objects out of 1000 (max. 8388607)
- 358 compressed objects within 4 object streams
- 123 named destinations out of 1000 (max. 131072)
+PDF statistics: 452 PDF objects out of 1000 (max. 8388607)
+ 375 compressed objects within 4 object streams
+ 127 named destinations out of 1000 (max. 131072)
  176 words of extra memory for PDF output out of 10000 (max. 100000000)
 

@@ -47,7 +47,7 @@ def calc_jaccard(A, B):
 # Reads the information jj
 def get_execution_seg(folder):
     shreds = {}
-    for file in glob.glob("test/dumps/*"):
+    for file in glob.glob("*.x"):
         f = open(file, "rb")
         x_seg = os.popen("readelf -SW " + str(file) + " | grep AX", "r")
         b = BloomFilter(100, 10)
@@ -70,13 +70,13 @@ def get_execution_seg(folder):
     return shreds
 
 
-shreds = get_execution_seg("../test/dumps/target")
+shreds = get_execution_seg(".")
 blo_dict = {}
 for i, v in shreds.items():
     blo_dict[i] = blossom(v)
 
 for name, v in blo_dict.items():
-    jaccard = calc_jaccard(v, blo_dict["target"])
+    jaccard = calc_jaccard(v, blo_dict["samplebin.x"])
     print(
         "The similarity index between target and "
         + name
